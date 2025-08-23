@@ -14,6 +14,7 @@ class SettingsService {
   static const String _keyHardwareAcceleration = 'hardware_acceleration';
   static const String _keyLastScanTime = 'last_scan_time';
   static const String _keyCachedFiles = 'cached_files';
+  static const String _keyThemePreset = 'theme_preset';
 
   late SharedPreferences _prefs;
 
@@ -101,6 +102,16 @@ class SettingsService {
     await _prefs.setInt(_keyThemeMode, mode.index);
   }
 
+  // Theme preset (custom)
+  ThemePreset getThemePreset() {
+    final index = _prefs.getInt(_keyThemePreset) ?? ThemePreset.deepSpace.index;
+    return ThemePreset.values[index];
+  }
+
+  Future<void> setThemePreset(ThemePreset preset) async {
+    await _prefs.setInt(_keyThemePreset, preset.index);
+  }
+
   // Hardware acceleration
   bool get hardwareAcceleration =>
       _prefs.getBool(_keyHardwareAcceleration) ?? true;
@@ -142,3 +153,16 @@ class SettingsService {
 enum RepeatMode { none, one, all }
 
 enum ThemeMode { system, light, dark }
+
+// Mirror enum used by ThemeProvider presets
+enum ThemePreset {
+  oceanicCalm,
+  sereneTwilight,
+  deepSpace,
+  mangoPassion,
+  sunsetBlaze,
+  neonGlow,
+  lushMeadow,
+  digitalMint,
+  gentleOcean,
+}

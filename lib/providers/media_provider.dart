@@ -23,6 +23,9 @@ class MediaProvider extends ChangeNotifier {
   bool _sortAscending = true;
   Timer? _debounce;
 
+  // Background enrichment control
+  bool _enrichmentCancelled = false;
+
   // Getters
   List<MediaFile> get allFiles => _allFiles;
   List<MediaFile> get filteredFiles => _filteredFiles;
@@ -46,11 +49,9 @@ class MediaProvider extends ChangeNotifier {
     try {
       await _settingsService.initialize();
       debugPrint('MediaProvider: SettingsService initialized');
-      // Skip file loading for now to test basic functionality
-      // await loadFiles();
-      debugPrint(
-        'MediaProvider: Initialization complete (files loading skipped)',
-      );
+      // Load from cache if available, otherwise scan
+      await loadFiles();
+      debugPrint('MediaProvider: Initialization complete');
     } catch (e) {
       debugPrint('MediaProvider: Error during initialization: $e');
       rethrow;
@@ -87,6 +88,10 @@ class MediaProvider extends ChangeNotifier {
             .where((file) => file != null)
             .cast<MediaFile>()
             .toList();
+
+        // Enrich cached entries (duration + thumbnails for videos) in background
+        _backgroundEnrich(_allFiles);
+
         debugPrint(
           'MediaProvider: Loaded ${_allFiles.length} files from cache',
         );
@@ -107,6 +112,13 @@ class MediaProvider extends ChangeNotifier {
     try {
       final files = await _fileService.scanDirectory(path);
       _allFiles.addAll(files);
+      // Persist cache so it survives restarts
+      await _settingsService.setCachedFiles(
+        _allFiles.map((f) => f.path).toList(),
+      );
+      await _settingsService.setLastScanTime(DateTime.now());
+      // Enrich newly scanned entries in background
+      _backgroundEnrich(files);
       _removeDuplicates();
       _applyFilters();
     } catch (e) {
@@ -131,6 +143,13 @@ class MediaProvider extends ChangeNotifier {
     try {
       final files = await _fileService.pickFiles();
       _allFiles.addAll(files);
+      // Persist cache so it survives restarts
+      await _settingsService.setCachedFiles(
+        _allFiles.map((f) => f.path).toList(),
+      );
+      await _settingsService.setLastScanTime(DateTime.now());
+      // Enrich newly added entries in background
+      _backgroundEnrich(files);
       _removeDuplicates();
       _applyFilters();
     } catch (e) {
@@ -233,6 +252,36 @@ class MediaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Enrich files in background with limited concurrency, notify UI periodically
+  Future<void> _backgroundEnrich(List<MediaFile> files) async {
+    const int concurrency = 3; // limit parallel tasks
+    int index = 0;
+
+    Future<void> worker() async {
+      while (!_enrichmentCancelled) {
+        MediaFile? task;
+        // Pull next task
+        if (index < files.length) {
+          task = files[index++];
+        } else {
+          break;
+        }
+
+        try {
+          await _fileService.enrichMediaFile(task);
+        } catch (_) {}
+
+        // Notify UI in small batches
+        if (index % 8 == 0) {
+          notifyListeners();
+        }
+      }
+    }
+
+    await Future.wait(List.generate(concurrency, (_) => worker()));
+    notifyListeners(); // final update
+  }
+
   // Playlist management
   void createPlaylist(String name) {
     final playlist = mx.Playlist.create(name);
@@ -268,7 +317,7 @@ class MediaProvider extends ChangeNotifier {
     _debounce?.cancel();
     _currentPlaylist?.dispose();
     _currentPlaylist = null;
-    // _fileService disposal handled by its owner
+    _enrichmentCancelled = true;
     super.dispose();
   }
 }

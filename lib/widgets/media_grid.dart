@@ -12,11 +12,11 @@ class MediaGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(12.0),
       child: MasonryGridView.count(
         crossAxisCount: _getCrossAxisCount(context),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
         itemCount: files.length,
         itemBuilder: (context, index) {
           return MediaTile(
@@ -30,8 +30,7 @@ class MediaGrid extends StatelessWidget {
 
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 6;
-    if (width > 800) return 4;
+    // Keep grid to 2–3 columns for readability like MX Player
     if (width > 600) return 3;
     return 2;
   }

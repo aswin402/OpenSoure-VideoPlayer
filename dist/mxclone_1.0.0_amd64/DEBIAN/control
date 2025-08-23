@@ -1,0 +1,9 @@
+Package: mxclone
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: MXClone Maintainers <maintainers@example.com>
+Depends: libgtk-3-0, libglib2.0-0, libstdc++6, libasound2, liblzma5, desktop-file-utils
+Description: MX Player Clone - A comprehensive media player for Linux
+ MXClone is a Flutter-based media player supporting video & audio playback.

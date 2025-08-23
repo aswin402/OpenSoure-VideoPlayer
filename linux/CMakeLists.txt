@@ -74,6 +74,42 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# === Desktop integration (icon + .desktop) ===
+# Configure a desktop entry with the binary and application ID.
+set(DESKTOP_FILE_IN "${CMAKE_SOURCE_DIR}/linux/${BINARY_NAME}.desktop.in")
+# Name the desktop file with the application ID for GNOME mapping
+set(DESKTOP_FILE "${PROJECT_BINARY_DIR}/${APPLICATION_ID}.desktop")
+set(EXEC_PATH "${BINARY_NAME}")
+if(EXISTS ${DESKTOP_FILE_IN})
+  configure_file(${DESKTOP_FILE_IN} ${DESKTOP_FILE} @ONLY)
+endif()
+
+# Icon sources (use 512 as base; DEs will scale as needed if smaller sizes are missing)
+set(APP_ICON_SOURCE_48  "${CMAKE_SOURCE_DIR}/web/icons/Icon-512.png")
+set(APP_ICON_SOURCE_64  "${CMAKE_SOURCE_DIR}/web/icons/Icon-512.png")
+set(APP_ICON_SOURCE_128 "${CMAKE_SOURCE_DIR}/web/icons/Icon-512.png")
+set(APP_ICON_SOURCE_256 "${CMAKE_SOURCE_DIR}/web/icons/Icon-512.png")
+set(APP_ICON_SOURCE_512 "${CMAKE_SOURCE_DIR}/web/icons/Icon-512.png")
+set(APP_ICON_NAME       "${APPLICATION_ID}.png")
+
+# Install locations inside the bundle prefix
+set(INSTALL_APP_DIR "${CMAKE_INSTALL_PREFIX}/share/applications")
+
+# Install multiple icon sizes for best theme coverage
+set(ICON_SIZES 48 64 128 256 512)
+foreach(SZ IN LISTS ICON_SIZES)
+  set(ICON_DEST_DIR "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${SZ}x${SZ}/apps")
+  # Pick the source variable name (APP_ICON_SOURCE_<size>)
+  string(CONCAT SRC_VAR "APP_ICON_SOURCE_" ${SZ})
+  if(EXISTS ${${SRC_VAR}})
+    install(FILES ${${SRC_VAR}} DESTINATION "${ICON_DEST_DIR}" RENAME ${APP_ICON_NAME} COMPONENT Runtime)
+  endif()
+endforeach()
+
+# Install .desktop file
+if(EXISTS ${DESKTOP_FILE})
+  install(FILES ${DESKTOP_FILE} DESTINATION "${INSTALL_APP_DIR}" COMPONENT Runtime)
+endif()
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build

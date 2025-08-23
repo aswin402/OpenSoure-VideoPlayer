@@ -48,6 +48,9 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "mxclone");
   }
 
+  // Set window icon using theme icon name (matches installed desktop icon)
+  gtk_window_set_icon_name(window, APPLICATION_ID);
+
   gtk_window_set_default_size(window, 1280, 720);
   gtk_widget_show(GTK_WIDGET(window));
 

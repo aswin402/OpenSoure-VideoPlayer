@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../models/media_file.dart';
@@ -25,6 +26,11 @@ class PlayerProvider extends ChangeNotifier {
   bool _isInitialized = false;
   Future<void>? _initializing;
 
+  // Aspect ratio & fit
+  BoxFit _videoFit = BoxFit.contain; // default
+  // Predefined aspect ratios; null uses source aspect
+  double? _aspectRatio; // null => auto
+
   // Getters
   Player get player => _player;
   VideoController get videoController => _videoController;
@@ -41,6 +47,10 @@ class PlayerProvider extends ChangeNotifier {
   bool get isFullscreen => _isFullscreen;
   RepeatMode get repeatMode => _repeatMode;
   bool get isMuted => _isMuted;
+
+  // Video layout getters
+  BoxFit get videoFit => _videoFit;
+  double? get aspectRatio => _aspectRatio;
 
   double get progress => _duration.inMilliseconds > 0
       ? _position.inMilliseconds / _duration.inMilliseconds
@@ -241,6 +251,33 @@ class PlayerProvider extends ChangeNotifier {
 
   void toggleFullscreen() {
     setFullscreen(!_isFullscreen);
+  }
+
+  // Aspect ratio & fit controls
+  void cycleAspectRatio() {
+    // Order: auto(null) -> 16:9 -> 4:3 -> 1:1 -> auto
+    if (_aspectRatio == null) {
+      _aspectRatio = 16 / 9;
+    } else if ((_aspectRatio! - 16 / 9).abs() < 0.001) {
+      _aspectRatio = 4 / 3;
+    } else if ((_aspectRatio! - 4 / 3).abs() < 0.001) {
+      _aspectRatio = 1.0;
+    } else {
+      _aspectRatio = null; // back to auto (source)
+    }
+    notifyListeners();
+  }
+
+  void cycleFit() {
+    // Order: contain -> cover -> fill -> contain
+    if (_videoFit == BoxFit.contain) {
+      _videoFit = BoxFit.cover;
+    } else if (_videoFit == BoxFit.cover) {
+      _videoFit = BoxFit.fill;
+    } else {
+      _videoFit = BoxFit.contain;
+    }
+    notifyListeners();
   }
 
   void _onPlaybackCompleted() {

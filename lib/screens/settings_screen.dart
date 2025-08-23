@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/settings_service.dart' as settings_service;
 
 class SettingsScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final settings_service.SettingsService _settingsService =
       settings_service.SettingsService();
+  bool _settingsReady = false;
 
   final List<Color> _subtitleColors = [
     Colors.white,
@@ -32,28 +34,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _settingsService.initialize();
+    _initSettings();
+  }
+
+  Future<void> _initSettings() async {
+    await _settingsService.initialize();
+    if (!mounted) return;
+    setState(() => _settingsReady = true);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          _buildPlaybackSection(),
-          const Divider(),
-          _buildVideoSection(),
-          const Divider(),
-          _buildAudioSection(),
-          const Divider(),
-          _buildSubtitleSection(),
-          const Divider(),
-          _buildGeneralSection(),
-          const Divider(),
-          _buildAboutSection(),
-        ],
+      appBar: AppBar(
+        title: const Text('Settings'),
+        flexibleSpace: Consumer<ThemeProvider>(
+          builder: (context, theme, _) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [theme.primaryColor, theme.secondaryColor],
+              ),
+            ),
+          ),
+        ),
       ),
+      body: !_settingsReady
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                _buildPlaybackSection(),
+                const Divider(),
+                _buildVideoSection(),
+                const Divider(),
+                _buildAudioSection(),
+                const Divider(),
+                _buildSubtitleSection(),
+                const Divider(),
+                _buildGeneralSection(),
+                const Divider(),
+                _buildAboutSection(),
+              ],
+            ),
     );
   }
 
@@ -234,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: const Text('General'),
       children: [
         ListTile(
-          title: const Text('Theme'),
+          title: const Text('Theme Mode'),
           subtitle: Text(
             _getThemeModeText(
               _settingsService.themeMode as settings_service.ThemeMode,
@@ -256,6 +279,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(_getThemeModeText(mode)),
               );
             }).toList(),
+          ),
+        ),
+        ListTile(
+          title: const Text('Theme Preset'),
+          subtitle: Text(_getPresetName(_settingsService.getThemePreset())),
+          trailing: Consumer<ThemeProvider>(
+            builder: (context, themeProvider, _) {
+              return DropdownButton<settings_service.ThemePreset>(
+                value: _settingsService.getThemePreset(),
+                onChanged: (settings_service.ThemePreset? value) async {
+                  if (value != null) {
+                    await _settingsService.setThemePreset(value);
+                    await themeProvider.setPreset(value);
+                    if (!mounted) return;
+                    setState(() {});
+                  }
+                },
+                items: settings_service.ThemePreset.values.map((preset) {
+                  return DropdownMenuItem<settings_service.ThemePreset>(
+                    value: preset,
+                    child: Text(_getPresetName(preset)),
+                  );
+                }).toList(),
+              );
+            },
           ),
         ),
         ListTile(
@@ -333,6 +381,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return 'Light';
       case settings_service.ThemeMode.dark:
         return 'Dark';
+    }
+  }
+
+  String _getPresetName(settings_service.ThemePreset preset) {
+    switch (preset) {
+      case settings_service.ThemePreset.oceanicCalm:
+        return 'Oceanic Calm (Azure → Sky Blue)';
+      case settings_service.ThemePreset.sereneTwilight:
+        return 'Serene Twilight (Blue → Violet)';
+      case settings_service.ThemePreset.deepSpace:
+        return 'Deep Space (Slate Blue → Teal)';
+      case settings_service.ThemePreset.mangoPassion:
+        return 'Mango Passion (Yellow → Red-Orange)';
+      case settings_service.ThemePreset.sunsetBlaze:
+        return 'Sunset Blaze (Hot Pink → Magenta)';
+      case settings_service.ThemePreset.neonGlow:
+        return 'Neon Glow (Pink → Orange)';
+      case settings_service.ThemePreset.lushMeadow:
+        return 'Lush Meadow (Teal Green → Light Green)';
+      case settings_service.ThemePreset.digitalMint:
+        return 'Digital Mint (Sea Green → Mint)';
+      case settings_service.ThemePreset.gentleOcean:
+        return 'Gentle Ocean (Light Teal → Pale Lemon)';
     }
   }
 
@@ -482,5 +553,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
 }

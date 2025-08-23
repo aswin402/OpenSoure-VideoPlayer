@@ -3,6 +3,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:path/path.dart' as p;
 import '../models/media_file.dart';
 
 class FileService {
@@ -157,9 +160,11 @@ class FileService {
           fs.XTypeGroup(label: 'Media', extensions: supportedExtensions),
         ];
         final files = await fs.openFiles(acceptedTypeGroups: typeGroups);
-        return files
+        final media = files
             .map((xfile) => MediaFile.fromFile(File(xfile.path)))
             .toList();
+        // Defer metadata enrichment to caller (provider) to avoid blocking UI here
+        return media;
       } else {
         // Fallback to file_picker
         final result = await FilePicker.platform.pickFiles(
@@ -168,10 +173,12 @@ class FileService {
           allowMultiple: true,
         );
         if (result != null) {
-          return result.files
+          final media = result.files
               .where((file) => file.path != null)
               .map((file) => MediaFile.fromFile(File(file.path!)))
               .toList();
+          // Defer metadata enrichment to caller
+          return media;
         }
       }
     } catch (e) {
@@ -210,5 +217,73 @@ class FileService {
 
   Future<Directory> getAppDirectory() async {
     return await getApplicationDocumentsDirectory();
+  }
+
+  Future<void> enrichMediaFile(MediaFile file) async {
+    if (file.type == MediaType.video) {
+      await _populateVideoMeta(file);
+    }
+  }
+
+  Future<void> _populateVideoMeta(MediaFile file) async {
+    try {
+      // Ensure media_kit is initialized
+      MediaKit.ensureInitialized();
+
+      // Create a temporary player to probe duration
+      final player = Player();
+      try {
+        await player.open(
+          Media(file.path),
+          play: false,
+        ); // open without playing
+        final ms = await player.stream.position.first.timeout(
+          const Duration(milliseconds: 200),
+          onTimeout: () => Duration.zero,
+        );
+        // If position is zero quickly, probe duration via state.duration if available
+        final duration = await player.stream.duration.first.timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () => Duration.zero,
+        );
+        file.duration = duration == Duration.zero ? ms : duration;
+      } catch (_) {
+        file.duration = null;
+      } finally {
+        await player.dispose();
+      }
+
+      // Generate a thumbnail image
+      try {
+        final thumbDir = await getTemporaryDirectory();
+        final outPath = p.join(
+          thumbDir.path,
+          'mxclone_thumbs',
+          '${p.basenameWithoutExtension(file.path)}.jpg',
+        );
+        final outDir = Directory(p.dirname(outPath));
+        if (!await outDir.exists()) {
+          await outDir.create(recursive: true);
+        }
+        // Choose middle frame when duration is known; otherwise first frame
+        final midMs = (file.duration != null && file.duration != Duration.zero)
+            ? (file.duration!.inMilliseconds ~/ 2)
+            : 0;
+        final thumb = await VideoThumbnail.thumbnailFile(
+          video: file.path,
+          thumbnailPath: outDir.path,
+          imageFormat: ImageFormat.JPEG,
+          quality: 70,
+          timeMs: midMs,
+        );
+        if (thumb != null && await File(thumb).exists()) {
+          file.thumbnailPath = thumb;
+        }
+      } catch (e) {
+        // Ignore thumbnail errors
+      }
+    } catch (e) {
+      // Ignore meta errors per-file
+    }
   }
 }

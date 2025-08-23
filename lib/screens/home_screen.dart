@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/media_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/media_file.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/media_list.dart';
@@ -41,9 +42,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         title: const Text('MX Player Clone'),
         elevation: 0,
+        flexibleSpace: Consumer<ThemeProvider>(
+          builder: (context, theme, _) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [theme.primaryColor, theme.secondaryColor],
+              ),
+            ),
+          ),
+        ),
         actions: [
+          // Search icon (opens inline search in body widget)
           IconButton(
-            icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () => setState(() {}),
+          ),
+          // Layout toggle
+          IconButton(
+            icon: Icon(
+              _isGridView ? Icons.list : Icons.grid_view,
+              color: Colors.white,
+            ),
             onPressed: () {
               setState(() {
                 _isGridView = !_isGridView;
@@ -51,13 +72,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             },
           ),
           PopupMenuButton<String>(
+            color: const Color(0xFF1E1E1E),
             onSelected: _handleMenuSelection,
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'scan_folder',
                 child: Row(
                   children: [
-                    Icon(Icons.folder_open),
+                    Icon(Icons.folder_open, color: Colors.white),
                     SizedBox(width: 8),
                     Text('Scan Folder'),
                   ],
@@ -67,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 value: 'add_files',
                 child: Row(
                   children: [
-                    Icon(Icons.add),
+                    Icon(Icons.add, color: Colors.white),
                     SizedBox(width: 8),
                     Text('Add Files'),
                   ],
@@ -77,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 value: 'playlists',
                 child: Row(
                   children: [
-                    Icon(Icons.playlist_play),
+                    Icon(Icons.playlist_play, color: Colors.white),
                     SizedBox(width: 8),
                     Text('Playlists'),
                   ],
@@ -87,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings),
+                    Icon(Icons.settings, color: Colors.white),
                     SizedBox(width: 8),
                     Text('Settings'),
                   ],
@@ -121,8 +143,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       body: Column(
         children: [
-          const custom.SearchBar(),
+          // Compact sort & count bar
           const FilterBar(),
+          // Search bar (animated inline)
+          const custom.SearchBar(),
           Expanded(
             child: Consumer<MediaProvider>(
               builder: (context, mediaProvider, child) {
@@ -157,42 +181,58 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.video_library_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No media files found',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.grey[600]),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.video_library_outlined,
+                  size: 72,
+                  color: Colors.white70,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No media files found',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Add files or scan folders to get started',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFFB0BEC5),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _handleMenuSelection('add_files'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Files'),
+                    ),
+                    const SizedBox(width: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => _handleMenuSelection('scan_folder'),
+                      icon: const Icon(Icons.folder_open),
+                      label: const Text('Scan Folder'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Add files or scan folders to get started',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => _handleMenuSelection('add_files'),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Files'),
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _handleMenuSelection('scan_folder'),
-                icon: const Icon(Icons.folder_open),
-                label: const Text('Scan Folder'),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

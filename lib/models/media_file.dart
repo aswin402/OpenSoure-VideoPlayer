@@ -9,6 +9,7 @@ class MediaFile {
   final DateTime lastModified;
   final MediaType type;
   String? thumbnailPath;
+  Duration? duration;
 
   MediaFile({
     required this.name,
@@ -18,6 +19,7 @@ class MediaFile {
     required this.lastModified,
     required this.type,
     this.thumbnailPath,
+    this.duration,
   });
 
   factory MediaFile.fromFile(File file) {
@@ -108,6 +110,19 @@ class MediaFile {
 
   String get formattedDate {
     return '${lastModified.day}/${lastModified.month}/${lastModified.year}';
+  }
+
+  String get formattedDuration {
+    final d = duration;
+    if (d == null || d == Duration.zero) return '00:00';
+    String two(int n) => n.toString().padLeft(2, '0');
+    final hours = d.inHours;
+    final minutes = d.inMinutes % 60;
+    final seconds = d.inSeconds % 60;
+    if (hours > 0) {
+      return '${two(hours)}:${two(minutes)}:${two(seconds)}';
+    }
+    return '${two(minutes)}:${two(seconds)}';
   }
 }
 

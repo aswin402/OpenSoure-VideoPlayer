@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MXClone
+GenericName=Media Player
+Comment=MX Player Clone - A comprehensive media player for Linux
+Exec=mxclone %F
+TryExec=mxclone
+Icon=com.example.mxclone
+Terminal=false
+Categories=AudioVideo;Video;Player;
+StartupNotify=true
+StartupWMClass=com.example.mxclone
+MimeType=video/*;audio/*;

@@ -108,6 +108,22 @@ class PlayerControls extends StatelessWidget {
                     onPressed: playerProvider.toggleRepeatMode,
                   ),
 
+                  // Aspect ratio toggle
+                  IconButton(
+                    tooltip: 'Aspect Ratio',
+                    icon: const Icon(Icons.aspect_ratio),
+                    color: Colors.white,
+                    onPressed: () => playerProvider.cycleAspectRatio(),
+                  ),
+
+                  // Fit toggle
+                  IconButton(
+                    tooltip: 'Fit Mode',
+                    icon: const Icon(Icons.fit_screen),
+                    color: Colors.white,
+                    onPressed: () => playerProvider.cycleFit(),
+                  ),
+
                   // Fullscreen toggle
                   IconButton(
                     icon: Icon(
@@ -127,7 +143,10 @@ class PlayerControls extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressBar(BuildContext context, PlayerProvider playerProvider) {
+  Widget _buildProgressBar(
+    BuildContext context,
+    PlayerProvider playerProvider,
+  ) {
     return Column(
       children: [
         Row(
@@ -168,7 +187,10 @@ class PlayerControls extends StatelessWidget {
     );
   }
 
-  Widget _buildVolumeControl(BuildContext context, PlayerProvider playerProvider) {
+  Widget _buildVolumeControl(
+    BuildContext context,
+    PlayerProvider playerProvider,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

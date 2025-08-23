@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/media_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/playlist.dart';
 import '../models/media_file.dart';
 import '../widgets/playlist_tile.dart';
@@ -14,6 +15,17 @@ class PlaylistsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Playlists'),
+        flexibleSpace: Consumer<ThemeProvider>(
+          builder: (context, theme, _) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [theme.primaryColor, theme.secondaryColor],
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
