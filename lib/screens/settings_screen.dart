@@ -132,6 +132,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             ListTile(
+              title: const Text('Resume Playback'),
+              subtitle: const Text('Ask to resume from last position'),
+              trailing: Switch(
+                value: _settingsService.resumePlayback,
+                onChanged: (value) {
+                  _settingsService.setResumePlayback(value);
+                  setState(() {});
+                },
+              ),
+            ),
+            ListTile(
               title: const Text('Hardware Acceleration'),
               subtitle: const Text('Use GPU for video decoding'),
               trailing: Switch(

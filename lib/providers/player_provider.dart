@@ -26,6 +26,9 @@ class PlayerProvider extends ChangeNotifier {
   bool _isInitialized = false;
   Future<void>? _initializing;
 
+  // Expose settings service for UI access
+  SettingsService get settingsService => _settingsService;
+
   // Aspect ratio & fit
   BoxFit _videoFit = BoxFit.contain; // default
   // Predefined aspect ratios; null uses source aspect
@@ -56,21 +59,28 @@ class PlayerProvider extends ChangeNotifier {
       ? _position.inMilliseconds / _duration.inMilliseconds
       : 0.0;
 
+  // Audio tracks management
+  List<AudioTrack> _audioTracks = const [];
+  AudioTrack? _selectedAudioTrack;
+  List<AudioTrack> get audioTracks => _audioTracks;
+  AudioTrack? get selectedAudioTrack => _selectedAudioTrack;
+
   String get positionText => _formatDuration(_position);
   String get durationText => _formatDuration(_duration);
   String get remainingText => _formatDuration(_duration - _position);
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-    // If an initialization is already in progress, await it
-    if (_initializing != null) {
-      await _initializing;
-      return;
-    }
+    if (_initializing != null) return await _initializing;
 
     _initializing = _doInitialize();
     try {
       await _initializing;
+    } catch (e) {
+      debugPrint('Player initialization failed: $e');
+      _isInitialized = false;
+      _initializing = null;
+      rethrow;
     } finally {
       _initializing = null;
     }
@@ -110,14 +120,29 @@ class PlayerProvider extends ChangeNotifier {
       _position = position;
       notifyListeners();
 
-      // Save position periodically
-      if (_currentMedia != null && position.inSeconds % 10 == 0) {
+      // Save position periodically (every 5 seconds for better accuracy)
+      if (_currentMedia != null &&
+          position.inSeconds % 5 == 0 &&
+          position.inSeconds > 0) {
+        debugPrint(
+          'Periodic save: ${position.inSeconds}s for ${_currentMedia!.name}',
+        );
         _settingsService.setLastPlayedPosition(_currentMedia!.path, position);
       }
     });
 
     _player.stream.duration.listen((duration) {
       _duration = duration;
+      notifyListeners();
+    });
+
+    // Track changes: update available audio tracks and selection
+    _player.stream.tracks.listen((tracks) {
+      _audioTracks = tracks.audio; // List<AudioTrack>
+      notifyListeners();
+    });
+    _player.stream.track.listen((track) {
+      _selectedAudioTrack = track.audio; // AudioTrack?
       notifyListeners();
     });
 
@@ -128,21 +153,59 @@ class PlayerProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> openMedia(MediaFile media) async {
+  Future<void> openMedia(MediaFile media, {bool resume = true}) async {
+    debugPrint('openMedia called: ${media.name}, resume: $resume');
     _currentMedia = media;
+    _isBuffering = true;
+    notifyListeners();
 
     try {
+      debugPrint('Opening media file: ${media.path}');
       await _player.open(Media(media.path));
+      debugPrint('Media opened successfully');
 
-      // Restore last played position
-      final lastPosition = _settingsService.getLastPlayedPosition(media.path);
-      if (lastPosition.inSeconds > 10) {
-        await _player.seek(lastPosition);
+      if (resume) {
+        final savedPosition = getLastSavedPosition(media);
+        debugPrint(
+          'Resume requested, saved position: ${savedPosition.inSeconds}s',
+        );
+        if (savedPosition.inSeconds > 0) {
+          debugPrint('Seeking to position: ${savedPosition.inSeconds}s');
+          await _player.seek(savedPosition);
+          debugPrint('Seek completed');
+        }
+      } else {
+        debugPrint('Resume not requested, starting from beginning');
       }
+
+      // Audio tracks will be populated via stream listeners after opening.
 
       notifyListeners();
     } catch (e) {
       debugPrint('Error opening media: $e');
+      _isBuffering = false;
+      rethrow;
+    } finally {
+      _isBuffering = false;
+    }
+  }
+
+  // Expose last saved position for UI to decide resume behavior
+  Duration getLastSavedPosition(MediaFile media) {
+    final savedPosition = _settingsService.getLastPlayedPosition(media.path);
+    debugPrint(
+      'Getting saved position for ${media.name}: ${savedPosition.inSeconds}s',
+    );
+    return savedPosition;
+  }
+
+  // Save current position manually
+  Future<void> saveCurrentPosition() async {
+    if (_currentMedia != null && _position.inSeconds > 0) {
+      await _settingsService.setLastPlayedPosition(
+        _currentMedia!.path,
+        _position,
+      );
     }
   }
 
@@ -152,6 +215,16 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> pause() async {
     await _player.pause();
+    // Save position when pausing
+    if (_currentMedia != null) {
+      debugPrint(
+        'Saving position on pause: ${_position.inSeconds}s for ${_currentMedia!.name}',
+      );
+      await _settingsService.setLastPlayedPosition(
+        _currentMedia!.path,
+        _position,
+      );
+    }
   }
 
   Future<void> playOrPause() async {
@@ -221,6 +294,17 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Select audio track
+  Future<void> setAudioTrack(AudioTrack track) async {
+    try {
+      await _player.setAudioTrack(track);
+      _selectedAudioTrack = track;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to set audio track: $e');
+    }
+  }
+
   void toggleRepeatMode() {
     switch (_repeatMode) {
       case RepeatMode.none:
@@ -281,6 +365,14 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void _onPlaybackCompleted() {
+    // Clear saved position when video completes (so it doesn't ask to resume next time)
+    if (_currentMedia != null) {
+      _settingsService.setLastPlayedPosition(
+        _currentMedia!.path,
+        Duration.zero,
+      );
+    }
+
     switch (_repeatMode) {
       case RepeatMode.one:
         _player.seek(Duration.zero);
@@ -301,14 +393,19 @@ class PlayerProvider extends ChangeNotifier {
     final seconds = duration.inSeconds.remainder(60);
 
     if (hours > 0) {
-      return '${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     } else {
-      return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
     }
   }
 
   @override
   void dispose() {
+    // Save current position before disposing
+    if (_currentMedia != null && _position.inSeconds > 0) {
+      _settingsService.setLastPlayedPosition(_currentMedia!.path, _position);
+    }
+
     // Dispose safely only if initialized
     if (_isInitialized) {
       _player.dispose();

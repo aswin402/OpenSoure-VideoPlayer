@@ -149,13 +149,27 @@ class PlayerOverlay extends StatelessWidget {
                     color: Colors.black.withOpacity(0.5),
                     shape: BoxShape.circle,
                   ),
-                  child: IconButton(
-                    icon: Icon(
-                      playerProvider.isPlaying ? Icons.pause : Icons.play_arrow,
-                    ),
-                    color: Colors.white,
-                    iconSize: 64,
-                    onPressed: playerProvider.playOrPause,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          playerProvider.isPlaying
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                        ),
+                        color: Colors.white,
+                        iconSize: 64,
+                        onPressed: playerProvider.isBuffering
+                            ? null
+                            : playerProvider.playOrPause,
+                      ),
+                      if (playerProvider.isBuffering)
+                        const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                    ],
                   ),
                 ),
               ),

@@ -253,11 +253,11 @@ class FileService {
         await player.dispose();
       }
 
-      // Generate a thumbnail image
+      // Generate or reuse a cached thumbnail image
       try {
-        final thumbDir = await getTemporaryDirectory();
+        final tempDir = await getTemporaryDirectory();
         final outPath = p.join(
-          thumbDir.path,
+          tempDir.path,
           'mxclone_thumbs',
           '${p.basenameWithoutExtension(file.path)}.jpg',
         );
@@ -265,19 +265,33 @@ class FileService {
         if (!await outDir.exists()) {
           await outDir.create(recursive: true);
         }
-        // Choose middle frame when duration is known; otherwise first frame
-        final midMs = (file.duration != null && file.duration != Duration.zero)
-            ? (file.duration!.inMilliseconds ~/ 2)
-            : 0;
-        final thumb = await VideoThumbnail.thumbnailFile(
-          video: file.path,
-          thumbnailPath: outDir.path,
-          imageFormat: ImageFormat.JPEG,
-          quality: 70,
-          timeMs: midMs,
-        );
-        if (thumb != null && await File(thumb).exists()) {
-          file.thumbnailPath = thumb;
+
+        // If a cached thumbnail already exists, reuse it
+        final cached = File(outPath);
+        if (await cached.exists()) {
+          file.thumbnailPath = outPath;
+        } else {
+          // Choose middle frame when duration is known; otherwise first frame
+          final midMs =
+              (file.duration != null && file.duration != Duration.zero)
+              ? (file.duration!.inMilliseconds ~/ 2)
+              : 0;
+          final generated = await VideoThumbnail.thumbnailFile(
+            video: file.path,
+            thumbnailPath: outDir.path, // generate into directory
+            imageFormat: ImageFormat.JPEG,
+            quality: 70,
+            timeMs: midMs,
+          );
+          if (generated != null && await File(generated).exists()) {
+            try {
+              await File(generated).rename(outPath);
+              file.thumbnailPath = outPath;
+            } catch (_) {
+              // Fallback to original generated path if rename fails
+              file.thumbnailPath = generated;
+            }
+          }
         }
       } catch (e) {
         // Ignore thumbnail errors

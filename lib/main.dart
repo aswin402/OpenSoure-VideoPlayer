@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'providers/media_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/theme_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_layout_screen.dart';
 import 'screens/player_screen.dart';
 
 void main() async {
@@ -136,7 +136,7 @@ class MxCloneApp extends StatelessWidget {
       theme: theme,
       darkTheme: theme,
       themeMode: themeProvider.materialThemeMode,
-      home: const HomeScreen(),
+      home: const MainLayoutScreen(),
       routes: {'/player': (context) => const PlayerScreen()},
       debugShowCheckedModeBanner: false,
     );

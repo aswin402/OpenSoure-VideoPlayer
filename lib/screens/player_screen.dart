@@ -8,6 +8,8 @@ import '../providers/media_provider.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/player_overlay.dart';
 
+enum _ResumeAction { resume, startOver }
+
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
 
@@ -15,7 +17,8 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen>
+    with WidgetsBindingObserver {
   bool _controlsVisible = true;
   bool _isInitialized = false;
   Timer? _hideTimer;
@@ -56,18 +59,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
+    debugPrint('=== _initializePlayer called ===');
     final mediaProvider = context.read<MediaProvider>();
     final playerProvider = context.read<PlayerProvider>();
 
     // Ensure PlayerProvider is initialized
+    debugPrint('Initializing PlayerProvider...');
     await playerProvider.initialize();
 
-    if (mediaProvider.currentFile != null) {
-      await playerProvider.openMedia(mediaProvider.currentFile!);
+    final file = mediaProvider.currentFile;
+    debugPrint('Current file: ${file?.name ?? "null"}');
+    if (file != null) {
+      debugPrint('Opening media: ${file.name}');
+      // Open media with resume handling
+      final resumeEnabled = playerProvider.settingsService.resumePlayback;
+      final saved = playerProvider.getLastSavedPosition(file);
+      final shouldResume = saved.inSeconds > 2 && resumeEnabled;
+
+      if (shouldResume && mounted) {
+        debugPrint('Showing resume dialog for position: ${saved.inSeconds}s');
+        final action = await _showResumeDialog(context, saved);
+        await playerProvider.openMedia(
+          file,
+          resume: action == _ResumeAction.resume,
+        );
+        // Small delay to ensure seek completes before playing
+        if (action == _ResumeAction.resume) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } else {
+        await playerProvider.openMedia(file, resume: false);
+      }
+
+      await playerProvider.play();
+
       setState(() {
         _isInitialized = true;
       });
@@ -181,7 +211,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       Container(
                         color: Colors.black.withOpacity(
                           playerProvider.brightness < 0
-                              ? -playerProvider.brightness * 0.5
+                              ? (-playerProvider.brightness * 0.5).clamp(
+                                  0.0,
+                                  1.0,
+                                )
                               : 0.0,
                         ),
                       ),
@@ -221,6 +254,48 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
+  }
+
+  // Ask user whether to resume from saved position or start over
+  Future<_ResumeAction?> _showResumeDialog(
+    BuildContext context,
+    Duration position,
+  ) {
+    final formatted = _formatDuration(position);
+    return showDialog<_ResumeAction>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text(
+            'Resume playback?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'Resume from $formatted or start from the beginning?',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(_ResumeAction.startOver),
+              child: const Text('Start Over'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(_ResumeAction.resume),
+              child: const Text('Resume'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
   }
 
   void _toggleControls() {
@@ -278,6 +353,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     // Reset system UI when leaving player
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -286,5 +362,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
       DeviceOrientation.portraitDown,
     ]);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Save position when app goes to background or is paused
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      final playerProvider = context.read<PlayerProvider>();
+      playerProvider.saveCurrentPosition();
+    }
   }
 }

@@ -39,6 +39,10 @@ class MediaProvider extends ChangeNotifier {
   SortBy get sortBy => _sortBy;
   bool get sortAscending => _sortAscending;
 
+  // Recently played cache
+  List<MediaFile> _recentFiles = [];
+  List<MediaFile> get recentFiles => _recentFiles;
+
   bool get hasNext =>
       _currentPlaylist != null &&
       _currentIndex < _currentPlaylist!.files.length - 1;
@@ -51,11 +55,28 @@ class MediaProvider extends ChangeNotifier {
       debugPrint('MediaProvider: SettingsService initialized');
       // Load from cache if available, otherwise scan
       await loadFiles();
+      // Load recent files list
+      await _loadRecentFiles();
       debugPrint('MediaProvider: Initialization complete');
     } catch (e) {
       debugPrint('MediaProvider: Error during initialization: $e');
       rethrow;
     }
+  }
+
+  Future<void> _loadRecentFiles() async {
+    final recentPaths = _settingsService.recentFiles;
+    final existing = <MediaFile>[];
+    for (final path in recentPaths) {
+      try {
+        final file = MediaFile.fromFile(File(path));
+        existing.add(file);
+      } catch (_) {}
+    }
+    _recentFiles = existing;
+    // Enrich recent files quickly in background
+    _backgroundEnrich(_recentFiles);
+    notifyListeners();
   }
 
   Future<void> loadFiles({bool force = false}) async {
@@ -176,6 +197,13 @@ class MediaProvider extends ChangeNotifier {
     }
 
     _settingsService.addRecentFile(file.path);
+    // Update in-memory recent list too
+    _recentFiles.removeWhere((f) => f.path == file.path);
+    _recentFiles.insert(0, file);
+    if (_recentFiles.length > 20) {
+      _recentFiles.removeRange(20, _recentFiles.length);
+    }
+
     notifyListeners();
   }
 

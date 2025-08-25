@@ -15,6 +15,7 @@ class SettingsService {
   static const String _keyLastScanTime = 'last_scan_time';
   static const String _keyCachedFiles = 'cached_files';
   static const String _keyThemePreset = 'theme_preset';
+  static const String _keyResumePlayback = 'resume_playback';
 
   late SharedPreferences _prefs;
 
@@ -81,14 +82,20 @@ class SettingsService {
 
   // Last played position
   Duration getLastPlayedPosition(String filePath) {
-    final milliseconds = _prefs.getInt('$_keyLastPlayedPosition$filePath') ?? 0;
-    return Duration(milliseconds: milliseconds);
+    final key = '$_keyLastPlayedPosition$filePath';
+    final milliseconds = _prefs.getInt(key) ?? 0;
+    final duration = Duration(milliseconds: milliseconds);
+    print(
+      'DEBUG: Retrieved position ${duration.inSeconds}s for $filePath with key: $key',
+    );
+    return duration;
   }
 
   Future<void> setLastPlayedPosition(String filePath, Duration position) async {
-    await _prefs.setInt(
-      '$_keyLastPlayedPosition$filePath',
-      position.inMilliseconds,
+    final key = '$_keyLastPlayedPosition$filePath';
+    await _prefs.setInt(key, position.inMilliseconds);
+    print(
+      'DEBUG: Saved position ${position.inSeconds}s for $filePath with key: $key',
     );
   }
 
@@ -117,6 +124,12 @@ class SettingsService {
       _prefs.getBool(_keyHardwareAcceleration) ?? true;
   Future<void> setHardwareAcceleration(bool value) async {
     await _prefs.setBool(_keyHardwareAcceleration, value);
+  }
+
+  // Resume playback
+  bool get resumePlayback => _prefs.getBool(_keyResumePlayback) ?? true;
+  Future<void> setResumePlayback(bool value) async {
+    await _prefs.setBool(_keyResumePlayback, value);
   }
 
   // File scanning and caching

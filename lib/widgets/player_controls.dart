@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:media_kit/media_kit.dart';
 import '../services/settings_service.dart';
 import '../providers/player_provider.dart';
 
@@ -51,22 +52,38 @@ class PlayerControls extends StatelessWidget {
                     ),
                   ),
 
-                  // Play/Pause button
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        playerProvider.isPlaying
-                            ? Icons.pause
-                            : Icons.play_arrow,
+                  // Play/Pause button with buffering indicator
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            playerProvider.isPlaying
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                          ),
+                          color: Colors.black,
+                          iconSize: 36,
+                          onPressed: playerProvider.isBuffering
+                              ? null
+                              : playerProvider.playOrPause,
+                        ),
                       ),
-                      color: Colors.black,
-                      iconSize: 36,
-                      onPressed: playerProvider.playOrPause,
-                    ),
+                      if (playerProvider.isBuffering)
+                        const Positioned.fill(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.black,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
 
                   // Forward button
@@ -100,6 +117,9 @@ class PlayerControls extends StatelessWidget {
 
                   // Playback speed
                   _buildSpeedControl(context, playerProvider),
+
+                  // Audio track selector
+                  _AudioTrackButton(),
 
                   // Repeat mode
                   IconButton(
@@ -289,5 +309,80 @@ class PlayerControls extends StatelessWidget {
         return const Icon(Icons.repeat);
     }
     return const Icon(Icons.repeat);
+  }
+}
+
+class _AudioTrackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        final hasTracks = player.audioTracks.isNotEmpty;
+        return IconButton(
+          tooltip: 'Audio Tracks',
+          icon: const Icon(Icons.audiotrack),
+          color: Colors.white,
+          onPressed: hasTracks
+              ? () => _showAudioTracksDialog(context, player)
+              : null,
+        );
+      },
+    );
+  }
+
+  void _showAudioTracksDialog(BuildContext context, PlayerProvider player) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final tracks = player.audioTracks;
+        final selected = player.selectedAudioTrack;
+        return AlertDialog(
+          title: const Text('Select Audio Track'),
+          content: SizedBox(
+            width: 420,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: tracks.length,
+              itemBuilder: (context, index) {
+                final t = tracks[index];
+                final isSelected = selected != null && t.id == selected.id;
+                final label = _labelForTrack(t as AudioTrack);
+                return ListTile(
+                  leading: Radio<bool>(
+                    value: true,
+                    groupValue: isSelected,
+                    onChanged: (_) async {
+                      await player.setAudioTrack(t);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  title: Text(label),
+                  onTap: () async {
+                    await player.setAudioTrack(t);
+                    Navigator.of(context).pop();
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _labelForTrack(AudioTrack t) {
+    final items = <String>[];
+    if (t.title != null) items.add(t.title!);
+    if (t.language != null) {
+      items.add('(${t.language})');
+    }
+    if (items.isEmpty) return 'Track ${t.id}';
+    return items.join(' ');
   }
 }

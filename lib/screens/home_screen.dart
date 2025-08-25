@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/media_provider.dart';
@@ -5,6 +6,7 @@ import '../providers/theme_provider.dart';
 import '../models/media_file.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/media_list.dart';
+import '../widgets/media_tile.dart';
 import '../widgets/search_bar.dart' as custom;
 import '../widgets/filter_bar.dart';
 import '../screens/player_screen.dart';
@@ -154,19 +156,77 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (mediaProvider.filteredFiles.isEmpty) {
-                  return _buildEmptyState(context);
-                }
+                return ListView(
+                  children: [
+                    // Recently played section
+                    if (mediaProvider.recentFiles.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.history,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Recently played',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 150,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: math.min(
+                            mediaProvider.recentFiles.length,
+                            12,
+                          ),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final file = mediaProvider.recentFiles[index];
+                            return SizedBox(
+                              width: 240,
+                              child: MediaTile(
+                                file: file,
+                                onTap: () => _onFileTap(file),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
 
-                return _isGridView
-                    ? MediaGrid(
-                        files: mediaProvider.filteredFiles,
-                        onFileTap: _onFileTap,
-                      )
-                    : MediaList(
-                        files: mediaProvider.filteredFiles,
-                        onFileTap: _onFileTap,
-                      );
+                    // All files section
+                    if (mediaProvider.filteredFiles.isEmpty)
+                      _buildEmptyState(context)
+                    else
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: _isGridView
+                            ? MediaGrid(
+                                files: mediaProvider.filteredFiles,
+                                onFileTap: _onFileTap,
+                              )
+                            : MediaList(
+                                files: mediaProvider.filteredFiles,
+                                onFileTap: _onFileTap,
+                              ),
+                      ),
+                  ],
+                );
               },
             ),
           ),
