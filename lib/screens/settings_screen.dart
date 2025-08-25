@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
+import '../widgets/theme_selector.dart';
 import '../services/settings_service.dart' as settings_service;
 
 class SettingsScreen extends StatefulWidget {
@@ -47,7 +48,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
+        ),
         flexibleSpace: Consumer<ThemeProvider>(
           builder: (context, theme, _) => Container(
             decoration: BoxDecoration(
@@ -59,101 +63,189 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+        elevation: 0,
       ),
       body: !_settingsReady
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading settings...',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : ListView(
+              padding: const EdgeInsets.only(bottom: 32),
               children: [
                 _buildPlaybackSection(),
-                const Divider(),
                 _buildVideoSection(),
-                const Divider(),
                 _buildAudioSection(),
-                const Divider(),
                 _buildSubtitleSection(),
-                const Divider(),
                 _buildGeneralSection(),
-                const Divider(),
                 _buildAboutSection(),
               ],
             ),
     );
   }
 
+  Widget _buildSettingTile({
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+    IconData? leadingIcon,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: leadingIcon != null
+            ? Icon(
+                leadingIcon,
+                color: Theme.of(context).primaryColor.withOpacity(0.7),
+                size: 20,
+              )
+            : null,
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 13,
+                ),
+              )
+            : null,
+        trailing: trailing,
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Widget _buildPlaybackSection() {
     return Consumer<PlayerProvider>(
       builder: (context, playerProvider, child) {
-        return ExpansionTile(
-          leading: const Icon(Icons.play_circle_outline),
-          title: const Text('Playback'),
-          children: [
-            ListTile(
-              title: const Text('Auto Play'),
-              subtitle: const Text('Automatically play next file'),
-              trailing: Switch(
-                value: _settingsService.autoPlay,
-                onChanged: (value) {
-                  _settingsService.setAutoPlay(value);
-                  setState(() {});
-                },
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).primaryColor.withOpacity(0.1),
+                Colors.transparent,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).primaryColor.withOpacity(0.2),
+            ),
+          ),
+          child: ExpansionTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.play_circle_outline_rounded,
+                color: Theme.of(context).primaryColor,
               ),
             ),
-            ListTile(
-              title: const Text('Repeat Mode'),
-              subtitle: Text(
-                _getRepeatModeText(
-                  playerProvider.repeatMode as settings_service.RepeatMode,
-                ),
-              ),
-              trailing: IconButton(
-                icon: _getRepeatModeIcon(
-                  playerProvider.repeatMode as settings_service.RepeatMode,
-                ),
-                onPressed: () {
-                  playerProvider.toggleRepeatMode();
-                },
-              ),
+            title: const Text(
+              'Playback',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
-            ListTile(
-              title: const Text('Playback Speed'),
-              subtitle: Text('${playerProvider.playbackSpeed}x'),
-              trailing: SizedBox(
-                width: 150,
-                child: Slider(
-                  value: playerProvider.playbackSpeed,
-                  min: 0.25,
-                  max: 3.0,
-                  divisions: 11,
-                  label: '${playerProvider.playbackSpeed}x',
+            children: [
+              _buildSettingTile(
+                title: 'Auto Play',
+                subtitle: 'Automatically play next file',
+                trailing: Switch(
+                  value: _settingsService.autoPlay,
+                  activeColor: Theme.of(context).primaryColor,
                   onChanged: (value) {
-                    playerProvider.setPlaybackSpeed(value);
+                    _settingsService.setAutoPlay(value);
+                    setState(() {});
                   },
                 ),
               ),
-            ),
-            ListTile(
-              title: const Text('Resume Playback'),
-              subtitle: const Text('Ask to resume from last position'),
-              trailing: Switch(
-                value: _settingsService.resumePlayback,
-                onChanged: (value) {
-                  _settingsService.setResumePlayback(value);
-                  setState(() {});
-                },
+              ListTile(
+                title: const Text('Repeat Mode'),
+                subtitle: Text(
+                  _getRepeatModeText(
+                    playerProvider.repeatMode as settings_service.RepeatMode,
+                  ),
+                ),
+                trailing: IconButton(
+                  icon: _getRepeatModeIcon(
+                    playerProvider.repeatMode as settings_service.RepeatMode,
+                  ),
+                  onPressed: () {
+                    playerProvider.toggleRepeatMode();
+                  },
+                ),
               ),
-            ),
-            ListTile(
-              title: const Text('Hardware Acceleration'),
-              subtitle: const Text('Use GPU for video decoding'),
-              trailing: Switch(
-                value: _settingsService.hardwareAcceleration,
-                onChanged: (value) {
-                  _settingsService.setHardwareAcceleration(value);
-                  setState(() {});
-                },
+              ListTile(
+                title: const Text('Playback Speed'),
+                subtitle: Text('${playerProvider.playbackSpeed}x'),
+                trailing: SizedBox(
+                  width: 150,
+                  child: Slider(
+                    value: playerProvider.playbackSpeed,
+                    min: 0.25,
+                    max: 3.0,
+                    divisions: 11,
+                    label: '${playerProvider.playbackSpeed}x',
+                    onChanged: (value) {
+                      playerProvider.setPlaybackSpeed(value);
+                    },
+                  ),
+                ),
               ),
-            ),
-          ],
+              ListTile(
+                title: const Text('Resume Playback'),
+                subtitle: const Text('Ask to resume from last position'),
+                trailing: Switch(
+                  value: _settingsService.resumePlayback,
+                  onChanged: (value) {
+                    _settingsService.setResumePlayback(value);
+                    setState(() {});
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Hardware Acceleration'),
+                subtitle: const Text('Use GPU for video decoding'),
+                trailing: Switch(
+                  value: _settingsService.hardwareAcceleration,
+                  onChanged: (value) {
+                    _settingsService.setHardwareAcceleration(value);
+                    setState(() {});
+                  },
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -263,77 +355,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildGeneralSection() {
-    return ExpansionTile(
-      leading: const Icon(Icons.settings),
-      title: const Text('General'),
-      children: [
-        ListTile(
-          title: const Text('Theme Mode'),
-          subtitle: Text(
-            _getThemeModeText(
-              _settingsService.themeMode as settings_service.ThemeMode,
-            ),
-          ),
-          trailing: DropdownButton<settings_service.ThemeMode>(
-            value: _settingsService.themeMode as settings_service.ThemeMode,
-            onChanged: (settings_service.ThemeMode? value) {
-              if (value != null) {
-                _settingsService.setThemeMode(value);
-                setState(() {});
-              }
-            },
-            items: settings_service.ThemeMode.values.map((
-              settings_service.ThemeMode mode,
-            ) {
-              return DropdownMenuItem<settings_service.ThemeMode>(
-                value: mode,
-                child: Text(_getThemeModeText(mode)),
-              );
-            }).toList(),
-          ),
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).primaryColor.withOpacity(0.1),
+            Colors.transparent,
+          ],
         ),
-        ListTile(
-          title: const Text('Theme Preset'),
-          subtitle: Text(_getPresetName(_settingsService.getThemePreset())),
-          trailing: Consumer<ThemeProvider>(
-            builder: (context, themeProvider, _) {
-              return DropdownButton<settings_service.ThemePreset>(
-                value: _settingsService.getThemePreset(),
-                onChanged: (settings_service.ThemePreset? value) async {
-                  if (value != null) {
-                    await _settingsService.setThemePreset(value);
-                    await themeProvider.setPreset(value);
-                    if (!mounted) return;
-                    setState(() {});
-                  }
-                },
-                items: settings_service.ThemePreset.values.map((preset) {
-                  return DropdownMenuItem<settings_service.ThemePreset>(
-                    value: preset,
-                    child: Text(_getPresetName(preset)),
-                  );
-                }).toList(),
-              );
-            },
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).primaryColor.withOpacity(0.2),
+        ),
+      ),
+      child: ExpansionTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.palette_rounded,
+            color: Theme.of(context).primaryColor,
           ),
         ),
-        ListTile(
-          title: const Text('Clear Recent Files'),
-          subtitle: const Text('Remove all recently played files'),
-          trailing: const Icon(Icons.clear_all),
-          onTap: () {
-            _showClearRecentDialog();
-          },
+        title: const Text(
+          'Appearance',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
-        ListTile(
-          title: const Text('Reset Settings'),
-          subtitle: const Text('Reset all settings to default'),
-          trailing: const Icon(Icons.restore),
-          onTap: () {
-            _showResetSettingsDialog();
-          },
-        ),
-      ],
+        children: [
+          const Padding(padding: EdgeInsets.all(16), child: ThemeSelector()),
+          _buildSettingTile(
+            title: 'Clear Recent Files',
+            subtitle: 'Remove all recently played files',
+            leadingIcon: Icons.clear_all_rounded,
+            onTap: () => _showClearRecentDialog(),
+          ),
+          _buildSettingTile(
+            title: 'Reset Settings',
+            subtitle: 'Reset all settings to default',
+            leadingIcon: Icons.restore_rounded,
+            onTap: () => _showResetSettingsDialog(),
+          ),
+        ],
+      ),
     );
   }
 

@@ -171,26 +171,49 @@ class PlayerControls extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
-              playerProvider.positionText,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                playerProvider.positionText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
             const Spacer(),
-            Text(
-              playerProvider.durationText,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                playerProvider.durationText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: Colors.red,
+            activeTrackColor: Theme.of(context).primaryColor,
             inactiveTrackColor: Colors.white.withOpacity(0.3),
-            thumbColor: Colors.red,
-            overlayColor: Colors.red.withOpacity(0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            thumbColor: Theme.of(context).primaryColor,
+            overlayColor: Theme.of(context).primaryColor.withOpacity(0.2),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+            trackHeight: 4,
           ),
           child: Slider(
             value: playerProvider.progress.clamp(0.0, 1.0),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/theme_provider.dart';
 import '../providers/media_provider.dart';
 
 class PlayerOverlay extends StatelessWidget {
@@ -116,22 +117,40 @@ class PlayerOverlay extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        playerProvider.brightness > 0
-                            ? Icons.brightness_high
-                            : playerProvider.brightness < 0
-                            ? Icons.brightness_low
-                            : Icons.brightness_medium,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Brightness\n${(playerProvider.brightness * 100).round()}%',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          playerProvider.brightness > 0
+                              ? Icons.brightness_high_rounded
+                              : playerProvider.brightness < 0
+                              ? Icons.brightness_low_rounded
+                              : Icons.brightness_medium_rounded,
                           color: Colors.white,
-                          fontSize: 12,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Brightness\n${(playerProvider.brightness * 100).round()}%',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -143,35 +162,55 @@ class PlayerOverlay extends StatelessWidget {
             // Center - Play/Pause area
             Expanded(
               flex: 2,
-              child: Center(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          playerProvider.isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
+              child: Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            themeProvider.primaryColor.withOpacity(0.8),
+                            themeProvider.secondaryColor.withOpacity(0.8),
+                          ],
                         ),
-                        color: Colors.white,
-                        iconSize: 64,
-                        onPressed: playerProvider.isBuffering
-                            ? null
-                            : playerProvider.playOrPause,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: themeProvider.primaryColor.withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
-                      if (playerProvider.isBuffering)
-                        const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                    ],
-                  ),
-                ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              playerProvider.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                            ),
+                            color: Colors.white,
+                            iconSize: 40,
+                            onPressed: playerProvider.isBuffering
+                                ? null
+                                : playerProvider.playOrPause,
+                          ),
+                          if (playerProvider.isBuffering)
+                            CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
 
@@ -191,22 +230,40 @@ class PlayerOverlay extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        playerProvider.isMuted || playerProvider.volume == 0
-                            ? Icons.volume_off
-                            : playerProvider.volume < 0.5
-                            ? Icons.volume_down
-                            : Icons.volume_up,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Volume\n${(playerProvider.volume * 100).round()}%',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          playerProvider.isMuted || playerProvider.volume == 0
+                              ? Icons.volume_off_rounded
+                              : playerProvider.volume < 0.5
+                              ? Icons.volume_down_rounded
+                              : Icons.volume_up_rounded,
                           color: Colors.white,
-                          fontSize: 12,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Volume\n${(playerProvider.volume * 100).round()}%',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

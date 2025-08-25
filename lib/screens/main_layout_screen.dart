@@ -9,6 +9,7 @@ import '../widgets/search_bar.dart' as custom;
 import '../widgets/filter_bar.dart';
 import '../widgets/playlist_tile.dart';
 import '../widgets/create_playlist_dialog.dart';
+import '../widgets/empty_state.dart';
 import '../screens/player_screen.dart';
 import '../screens/playlists_screen.dart';
 import '../screens/settings_screen.dart';
@@ -401,84 +402,196 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Widget _buildLibraryContent() {
-    return Column(
-      children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Library',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Browse and manage your media files',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+    return Consumer<MediaProvider>(
+      builder: (context, mediaProvider, child) {
+        return Column(
+          children: [
+            // Enhanced Header with gradient background
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Theme.of(context).primaryColor.withOpacity(0.1),
+                    Colors.transparent,
                   ],
                 ),
               ),
-              // View toggle
-              IconButton(
-                icon: Icon(
-                  _isGridView ? Icons.list : Icons.grid_view,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isGridView = !_isGridView;
-                  });
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Media Library',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${mediaProvider.filteredFiles.length} files • ${mediaProvider.allFiles.length} total',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Enhanced view toggle with animation
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildViewToggleButton(
+                              icon: Icons.grid_view_rounded,
+                              isSelected: _isGridView,
+                              onPressed: () =>
+                                  setState(() => _isGridView = true),
+                              tooltip: 'Grid View',
+                            ),
+                            _buildViewToggleButton(
+                              icon: Icons.view_list_rounded,
+                              isSelected: !_isGridView,
+                              onPressed: () =>
+                                  setState(() => _isGridView = false),
+                              tooltip: 'List View',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Enhanced Add files button
+                      ElevatedButton.icon(
+                        onPressed: () => _handleAddFiles(),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Add Files'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Search bar
+                  custom.SearchBar(
+                    controller: _searchController,
+                    onChanged: mediaProvider.setSearchQuery,
+                  ),
+                ],
               ),
-              // Add files button
-              ElevatedButton.icon(
-                onPressed: () => _handleAddFiles(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Files'),
+            ),
+
+            // Enhanced Filter bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: FilterBar(
+                selectedType: mediaProvider.filterType,
+                onTypeChanged: mediaProvider.setFilterType,
+                sortBy: mediaProvider.sortBy,
+                sortAscending: mediaProvider.sortAscending,
+                onSortChanged: mediaProvider.setSorting,
               ),
-            ],
-          ),
+            ),
+
+            // Content with enhanced loading and empty states
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: mediaProvider.isLoading
+                    ? _buildLoadingState()
+                    : mediaProvider.filteredFiles.isEmpty
+                    ? _buildEmptyLibraryState()
+                    : _isGridView
+                    ? MediaGrid(
+                        files: mediaProvider.filteredFiles,
+                        onFileTap: _onFileTap,
+                      )
+                    : MediaList(
+                        files: mediaProvider.filteredFiles,
+                        onFileTap: _onFileTap,
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildViewToggleButton({
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
-
-        // Filter bar and search
-        const FilterBar(),
-        const custom.SearchBar(),
-
-        // Content
-        Expanded(
-          child: Consumer<MediaProvider>(
-            builder: (context, mediaProvider, child) {
-              if (mediaProvider.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (mediaProvider.filteredFiles.isEmpty) {
-                return _buildEmptyLibraryState();
-              }
-
-              return _isGridView
-                  ? MediaGrid(
-                      files: mediaProvider.filteredFiles,
-                      onFileTap: _onFileTap,
-                    )
-                  : MediaList(
-                      files: mediaProvider.filteredFiles,
-                      onFileTap: _onFileTap,
-                    );
-            },
-          ),
+        child: IconButton(
+          icon: Icon(icon),
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+          onPressed: onPressed,
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).primaryColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading media files...',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -688,122 +801,72 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Widget _buildEmptyLibraryState() {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Card(
-          margin: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.video_library_outlined,
-                  size: 72,
-                  color: Colors.white70,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No media files found',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Add files or scan folders to get started',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFFB0BEC5),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => _handleAddFiles(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Files'),
-                    ),
-                    const SizedBox(width: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => _handleScanFolder(),
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Scan Folder'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    return Consumer<MediaProvider>(
+      builder: (context, mediaProvider, child) {
+        // Check if it's a search result or filter result
+        if (mediaProvider.searchQuery.isNotEmpty) {
+          return SearchEmptyState(searchQuery: mediaProvider.searchQuery);
+        }
 
-  Widget _buildEmptyPlaylistsState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Playlist icon with lines (similar to screenshot)
-          Column(
+        if (mediaProvider.filterType != MediaType.unknown) {
+          return FilterEmptyState(
+            filterType: mediaProvider.filterType == MediaType.video
+                ? 'Video'
+                : 'Audio',
+          );
+        }
+
+        // Default empty state with custom actions
+        return EmptyState(
+          icon: Icons.video_library_outlined,
+          title: 'No Media Files',
+          subtitle:
+              'Add some videos or audio files to get started.\nYou can browse and organize your media collection here.',
+          customAction: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 4,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
+              ElevatedButton.icon(
+                onPressed: () => _handleAddFiles(),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add Files'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                width: 4,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                width: 4,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: () => _handleScanFolder(),
+                icon: const Icon(Icons.folder_open_rounded),
+                label: const Text('Scan Folder'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(
+                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Text(
-            'No playlists found',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create your first playlist to organize your videos',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => _showCreatePlaylistDialog(),
-            icon: const Icon(Icons.add),
-            label: const Text('Create Playlist'),
-          ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyPlaylistsState() {
+    return PlaylistEmptyState(
+      onCreatePlaylist: () => _showCreatePlaylistDialog(),
     );
   }
 
