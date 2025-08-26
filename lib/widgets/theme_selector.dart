@@ -10,7 +10,7 @@ class ThemeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        return Container(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,9 +36,7 @@ class ThemeSelector extends StatelessWidget {
   }
 
   Widget _buildThemeModeSelector(
-    BuildContext context,
-    ThemeProvider themeProvider,
-  ) {
+      BuildContext context, ThemeProvider themeProvider) {
     return Row(
       children: [
         Expanded(
@@ -47,7 +45,8 @@ class ThemeSelector extends StatelessWidget {
             title: 'System',
             subtitle: 'Follow system',
             icon: Icons.brightness_auto_rounded,
-            isSelected: themeProvider.mode == settings_service.ThemeMode.system,
+            isSelected:
+                themeProvider.mode == settings_service.ThemeMode.system,
             onTap: () =>
                 themeProvider.setThemeMode(settings_service.ThemeMode.system),
           ),
@@ -88,143 +87,147 @@ class ThemeSelector extends StatelessWidget {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
-        return GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: isSelected
-                  ? LinearGradient(
-                      colors: [
-                        themeProvider.primaryColor,
-                        themeProvider.secondaryColor,
-                      ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [
+                      Provider.of<ThemeProvider>(context).primaryColor,
+                      Provider.of<ThemeProvider>(context).secondaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isSelected ? null : Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? Colors.transparent : Colors.white24,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     )
-                  : null,
-              color: isSelected ? null : Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.transparent
-                    : Colors.white.withOpacity(0.2),
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.7),
-                  size: 24,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.9),
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.8)
-                        : Colors.white.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+                  ]
+                : null,
           ),
-        );
-      },
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 28,
+                color: isSelected ? Colors.white : Colors.white70,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? Colors.white : Colors.white70,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected
+                      ? Colors.white.withOpacity(0.8)
+                      : Colors.white54,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildPresetGrid(BuildContext context, ThemeProvider themeProvider) {
     final presets = settings_service.ThemePreset.values;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: presets.length,
-      itemBuilder: (context, index) {
-        final preset = presets[index];
-        final colors = _getPresetColors(preset);
-        final isSelected = themeProvider.preset == preset;
-
-        return GestureDetector(
-          onTap: () => themeProvider.setPreset(preset),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? Colors.white : Colors.transparent,
-                width: isSelected ? 3 : 0,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: colors.first.withOpacity(0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Stack(
-              children: [
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isSelected)
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: Colors.white,
-                          size: 24,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final int count = (constraints.maxWidth / 200).clamp(2, 6).floor();
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.6,
+          ),
+          itemCount: presets.length,
+          itemBuilder: (context, index) {
+            final preset = presets[index];
+            final colors = _getPresetColors(preset);
+            final isSelected = themeProvider.preset == preset;
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => themeProvider.setPreset(preset),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: colors,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.white : Colors.transparent,
+                      width: isSelected ? 2 : 0,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: colors.first.withOpacity(0.25),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isSelected)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _getPresetName(preset),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            shadows: [
+                              Shadow(color: Colors.black26, blurRadius: 2),
+                            ],
+                          ),
                         ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _getPresetName(preset),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(color: Colors.black26, blurRadius: 2),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -250,6 +253,22 @@ class ThemeSelector extends StatelessWidget {
         return [const Color(0xFF134E5E), const Color(0xFF71B280)];
       case settings_service.ThemePreset.gentleOcean:
         return [const Color(0xFF43C6AC), const Color(0xFFF8FFAE)];
+      case settings_service.ThemePreset.auroraBorealis:
+        return [const Color(0xFF00C6FF), const Color(0xFF0072FF)];
+      case settings_service.ThemePreset.royalAmethyst:
+        return [const Color(0xFF9D50BB), const Color(0xFF6E48AA)];
+      case settings_service.ThemePreset.lavaSunrise:
+        return [const Color(0xFFFF512F), const Color(0xFFF09819)];
+      case settings_service.ThemePreset.aquaMarine:
+        return [const Color(0xFF00B4DB), const Color(0xFF0083B0)];
+      case settings_service.ThemePreset.steelMidnight:
+        return [const Color(0xFF232526), const Color(0xFF414345)];
+      case settings_service.ThemePreset.cherryBlossom:
+        return [const Color(0xFFFFA4B7), const Color(0xFFFF4E50)];
+      case settings_service.ThemePreset.amberTeal:
+        return [const Color(0xFFFFC371), const Color(0xFF00C6A7)];
+      case settings_service.ThemePreset.graphiteBlue:
+        return [const Color(0xFF283048), const Color(0xFF859398)];
     }
   }
 
@@ -273,6 +292,22 @@ class ThemeSelector extends StatelessWidget {
         return 'Digital\nMint';
       case settings_service.ThemePreset.gentleOcean:
         return 'Gentle\nOcean';
+      case settings_service.ThemePreset.auroraBorealis:
+        return 'Aurora\nBorealis';
+      case settings_service.ThemePreset.royalAmethyst:
+        return 'Royal\nAmethyst';
+      case settings_service.ThemePreset.lavaSunrise:
+        return 'Lava\nSunrise';
+      case settings_service.ThemePreset.aquaMarine:
+        return 'Aqua\nMarine';
+      case settings_service.ThemePreset.steelMidnight:
+        return 'Steel\nMidnight';
+      case settings_service.ThemePreset.cherryBlossom:
+        return 'Cherry\nBlossom';
+      case settings_service.ThemePreset.amberTeal:
+        return 'Amber\nTeal';
+      case settings_service.ThemePreset.graphiteBlue:
+        return 'Graphite\nBlue';
     }
   }
 }

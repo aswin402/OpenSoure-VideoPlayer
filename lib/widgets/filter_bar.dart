@@ -31,6 +31,7 @@ class FilterBar extends StatelessWidget {
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               // Media type filters
@@ -54,13 +55,13 @@ class FilterBar extends StatelessWidget {
               _buildFilterChip(
                 context,
                 label: 'Audio',
-                icon: Icons.audio_file_rounded,
+                icon: Icons.audiotrack_rounded,
                 isSelected: currentType == MediaType.audio,
                 onTap: () => _handleTypeChange(MediaType.audio, mediaProvider),
               ),
               const SizedBox(width: 16),
 
-              // Sort options
+              // Divider
               Container(
                 height: 32,
                 width: 1,
@@ -68,6 +69,7 @@ class FilterBar extends StatelessWidget {
               ),
               const SizedBox(width: 16),
 
+              // Sorting dropdown and direction
               _buildSortDropdown(
                 context,
                 currentSortBy,
@@ -101,7 +103,7 @@ class FilterBar extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
               gradient: isSelected
                   ? LinearGradient(
@@ -109,25 +111,36 @@ class FilterBar extends StatelessWidget {
                         themeProvider.primaryColor,
                         themeProvider.secondaryColor,
                       ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     )
                   : null,
-              color: isSelected ? null : Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+              color: isSelected ? null : Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: isSelected
                     ? Colors.transparent
                     : Colors.white.withOpacity(0.2),
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : [],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
-                  size: 16,
+                  size: 18,
                   color: isSelected
                       ? Colors.white
-                      : Colors.white.withOpacity(0.7),
+                      : Colors.white.withOpacity(0.75),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -135,11 +148,9 @@ class FilterBar extends StatelessWidget {
                   style: TextStyle(
                     color: isSelected
                         ? Colors.white
-                        : Colors.white.withOpacity(0.7),
+                        : Colors.white.withOpacity(0.75),
                     fontSize: 14,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ],
@@ -157,10 +168,10 @@ class FilterBar extends StatelessWidget {
     MediaProvider mediaProvider,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).primaryColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Theme.of(context).primaryColor.withOpacity(0.3),
         ),
@@ -235,7 +246,7 @@ class FilterBar extends StatelessWidget {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withOpacity(0.12),
         shape: BoxShape.circle,
         border: Border.all(
           color: Theme.of(context).primaryColor.withOpacity(0.3),
@@ -247,7 +258,7 @@ class FilterBar extends StatelessWidget {
               ? Icons.keyboard_arrow_up_rounded
               : Icons.keyboard_arrow_down_rounded,
           color: Theme.of(context).primaryColor,
-          size: 20,
+          size: 22,
         ),
         onPressed: () => _handleSortChange(
           currentSortBy,

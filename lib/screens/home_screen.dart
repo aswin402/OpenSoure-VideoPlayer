@@ -303,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const PlayerScreen()));
+    ).push(MaterialPageRoute(builder: (context) => PlayerScreen(file: file)));
   }
 
   void _handleMenuSelection(String value) async {

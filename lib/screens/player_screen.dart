@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mxclone/models/media_file.dart';
 import 'package:provider/provider.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../providers/player_provider.dart';
@@ -11,7 +12,7 @@ import '../widgets/player_overlay.dart';
 enum _ResumeAction { resume, startOver }
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key});
+  const PlayerScreen({super.key, required MediaFile file});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();

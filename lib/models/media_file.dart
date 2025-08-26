@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 class MediaFile {
@@ -9,7 +10,7 @@ class MediaFile {
   final DateTime lastModified;
   final MediaType type;
   String? thumbnailPath;
-  Duration? duration;
+  ValueNotifier<Duration?> duration = ValueNotifier(null);
 
   MediaFile({
     required this.name,
@@ -19,7 +20,6 @@ class MediaFile {
     required this.lastModified,
     required this.type,
     this.thumbnailPath,
-    this.duration,
   });
 
   factory MediaFile.fromFile(File file) {
@@ -113,7 +113,7 @@ class MediaFile {
   }
 
   String get formattedDuration {
-    final d = duration;
+    final d = duration.value;
     if (d == null || d == Duration.zero) return '00:00';
     String two(int n) => n.toString().padLeft(2, '0');
     final hours = d.inHours;

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -43,11 +42,6 @@ void main() async {
   );
 }
 
-void _initializeLinuxLibs() {
-  // This will be handled by media_kit automatically on Linux
-  // No need for explicit MediaKitLibsLinux.ensureInitialized()
-}
-
 class MxCloneApp extends StatelessWidget {
   static const appName = 'MX Clone';
   const MxCloneApp({super.key});
@@ -58,23 +52,24 @@ class MxCloneApp extends StatelessWidget {
     final primary = themeProvider.primaryColor;
     final secondary = themeProvider.secondaryColor;
 
+    // AMOLED true black theme with accent colors
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.dark(
         primary: primary,
         secondary: secondary,
-        background: const Color(0xFF121212),
-        surface: const Color(0xFF121212),
+        background: Colors.black, // OLED black
+        surface: const Color(0xFF0A0A0A),
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.white,
         onBackground: Colors.white,
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      scaffoldBackgroundColor: Colors.black,
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: primary,
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           fontWeight: FontWeight.w700,
@@ -89,7 +84,7 @@ class MxCloneApp extends StatelessWidget {
           borderSide: BorderSide(color: secondary, width: 3),
         ),
         labelColor: secondary,
-        unselectedLabelColor: const Color(0xFFB0BEC5),
+        unselectedLabelColor: const Color(0xFF9AA5AE),
         labelStyle: const TextStyle(fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
       ),
@@ -120,15 +115,17 @@ class MxCloneApp extends StatelessWidget {
         ),
       ),
       popupMenuTheme: const PopupMenuThemeData(
-        color: Color(0xFF1E1E1E),
+        color: Color(0xFF101010),
         textStyle: TextStyle(color: Colors.white),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1E1E1E),
+        color: const Color(0xFF101010),
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         shadowColor: secondary.withOpacity(0.2),
       ),
+      dividerColor: Colors.white10,
+      dialogBackgroundColor: const Color(0xFF101010),
     );
 
     return MaterialApp(
@@ -137,7 +134,21 @@ class MxCloneApp extends StatelessWidget {
       darkTheme: theme,
       themeMode: themeProvider.materialThemeMode,
       home: const MainLayoutScreen(),
-      routes: {'/player': (context) => const PlayerScreen()},
+      routes: {
+        '/player': (context) {
+          // Get the current file from MediaProvider
+          final mediaProvider = Provider.of<MediaProvider>(
+            context,
+            listen: false,
+          );
+          if (mediaProvider.currentFile != null) {
+            return PlayerScreen(file: mediaProvider.currentFile!);
+          } else {
+            // If no current file, navigate back to main screen
+            return const MainLayoutScreen();
+          }
+        },
+      },
       debugShowCheckedModeBanner: false,
     );
   }

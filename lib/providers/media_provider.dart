@@ -79,8 +79,13 @@ class MediaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadFiles({bool force = false}) async {
-    debugPrint('MediaProvider: Loading files (force: $force)...');
+  Future<void> loadFiles({
+    bool force = false,
+    bool regenerateThumbnails = false,
+  }) async {
+    debugPrint(
+      'MediaProvider: Loading files (force: $force, regenThumbs: $regenerateThumbnails)...',
+    );
     _setLoading(true);
     try {
       if (force || _settingsService.shouldRescan()) {
@@ -111,7 +116,7 @@ class MediaProvider extends ChangeNotifier {
             .toList();
 
         // Enrich cached entries (duration + thumbnails for videos) in background
-        _backgroundEnrich(_allFiles);
+        _backgroundEnrich(_allFiles, forceThumbnails: regenerateThumbnails);
 
         debugPrint(
           'MediaProvider: Loaded ${_allFiles.length} files from cache',
@@ -223,6 +228,14 @@ class MediaProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> clearRecentFiles() async {
+    try {
+      await _settingsService.clearRecentFiles();
+    } catch (_) {}
+    _recentFiles.clear();
+    notifyListeners();
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query;
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -281,7 +294,10 @@ class MediaProvider extends ChangeNotifier {
   }
 
   // Enrich files in background with limited concurrency, notify UI periodically
-  Future<void> _backgroundEnrich(List<MediaFile> files) async {
+  Future<void> _backgroundEnrich(
+    List<MediaFile> files, {
+    bool forceThumbnails = false,
+  }) async {
     const int concurrency = 3; // limit parallel tasks
     int index = 0;
 
@@ -296,7 +312,10 @@ class MediaProvider extends ChangeNotifier {
         }
 
         try {
-          await _fileService.enrichMediaFile(task);
+          await _fileService.enrichMediaFile(
+            task,
+            forceThumbnail: forceThumbnails,
+          );
         } catch (_) {}
 
         // Notify UI in small batches
@@ -338,6 +357,15 @@ class MediaProvider extends ChangeNotifier {
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
+  }
+
+  // Expose saved position for a file (used for Continue Watching & progress UI)
+  Duration getSavedPosition(MediaFile file) {
+    try {
+      return _settingsService.getLastPlayedPosition(file.path);
+    } catch (_) {
+      return Duration.zero;
+    }
   }
 
   @override

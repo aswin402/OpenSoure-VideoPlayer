@@ -51,7 +51,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   end: Alignment.bottomRight,
                   colors: [
                     const Color(0xFF121212),
-                    Theme.of(context).primaryColor.withOpacity(0.05),
+                    Theme.of(context).primaryColor.withValues(alpha: 0.05),
                   ],
                 ),
               ),
@@ -73,7 +73,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                themeProvider.primaryColor.withOpacity(0.1),
+                themeProvider.primaryColor.withValues(alpha: 0.1),
                 const Color(0xFF1A1A1A),
               ],
             ),
@@ -99,7 +99,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -383,7 +383,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const PlayerScreen(),
+                              builder: (context) => PlayerScreen(
+                                file: mediaProvider.currentFile!,
+                              ),
                             ),
                           );
                         },
@@ -875,7 +877,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     mediaProvider.setCurrentFile(file);
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const PlayerScreen()));
+    ).push(MaterialPageRoute(builder: (context) => PlayerScreen(file: file)));
   }
 
   void _handleAddFiles() async {

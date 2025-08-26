@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/media_provider.dart';
+  import 'package:file_picker/file_picker.dart';
 
-class PlayerOverlay extends StatelessWidget {
+class PlayerOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onToggleFullscreen;
 
@@ -15,19 +16,37 @@ class PlayerOverlay extends StatelessWidget {
   });
 
   @override
+  State<PlayerOverlay> createState() => _PlayerOverlayState();
+}
+
+class _PlayerOverlayState extends State<PlayerOverlay> {
+  DateTime? _lastBrightnessTouch;
+  DateTime? _lastVolumeTouch;
+
+  bool get _showBrightness =>
+      _lastBrightnessTouch != null &&
+      DateTime.now().difference(_lastBrightnessTouch!) <
+          const Duration(milliseconds: 900);
+  bool get _showVolume =>
+      _lastVolumeTouch != null &&
+      DateTime.now().difference(_lastVolumeTouch!) <
+          const Duration(milliseconds: 900);
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        // Subtle dark veil only at the very top & bottom for minimalism
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.black.withOpacity(0.8),
-            Colors.transparent,
-            Colors.transparent,
-            Colors.black.withOpacity(0.8),
+            Color(0xCC000000),
+            Color(0x00000000),
+            Color(0x00000000),
+            Color(0xCC000000),
           ],
-          stops: const [0.0, 0.3, 0.7, 1.0],
+          stops: [0.0, 0.18, 0.82, 1.0],
         ),
       ),
       child: Column(
@@ -35,12 +54,8 @@ class PlayerOverlay extends StatelessWidget {
           // Top bar
           _buildTopBar(context),
 
-          const Spacer(),
-
-          // Center controls (brightness and volume gestures area)
-          Expanded(flex: 3, child: _buildCenterControls(context)),
-
-          const Spacer(),
+          // Center gestures with transient minimalist hints
+          Expanded(child: _buildCenterControls(context)),
         ],
       ),
     );
@@ -49,37 +64,35 @@ class PlayerOverlay extends StatelessWidget {
   Widget _buildTopBar(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              color: Colors.white,
-              onPressed: onClose,
-            ),
-            const SizedBox(width: 16),
+            _glassIconButton(icon: Icons.arrow_back, onTap: widget.onClose),
+            const SizedBox(width: 10),
             Expanded(
               child: Consumer<MediaProvider>(
                 builder: (context, mediaProvider, child) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         mediaProvider.currentFile?.name ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (mediaProvider.currentPlaylist != null)
                         Text(
-                          '${mediaProvider.currentIndex + 1} of ${mediaProvider.currentPlaylist!.files.length}',
+                          '${mediaProvider.currentIndex + 1} / ${mediaProvider.currentPlaylist!.files.length}',
                           style: const TextStyle(
                             color: Colors.white70,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                     ],
@@ -87,10 +100,9 @@ class PlayerOverlay extends StatelessWidget {
                 },
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.more_vert),
-              color: Colors.white,
-              onPressed: () => _showOptionsMenu(context),
+            _glassIconButton(
+              icon: Icons.more_vert,
+              onTap: () => _showOptionsMenu(context),
             ),
           ],
         ),
@@ -99,174 +111,110 @@ class PlayerOverlay extends StatelessWidget {
   }
 
   Widget _buildCenterControls(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, playerProvider, child) {
+    return Consumer2<PlayerProvider, ThemeProvider>(
+      builder: (context, playerProvider, themeProvider, child) {
         return Row(
           children: [
-            // Left side - Brightness control
+            // Left side - Brightness gesture
             Expanded(
               child: GestureDetector(
                 onPanUpdate: (details) {
-                  final delta = -details.delta.dy / 200;
+                  final delta = -details.delta.dy / 220;
                   final newBrightness = (playerProvider.brightness + delta)
                       .clamp(-1.0, 1.0);
                   playerProvider.setBrightness(newBrightness);
+                  setState(() => _lastBrightnessTouch = DateTime.now());
                 },
                 child: Container(
                   color: Colors.transparent,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 18),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _showBrightness ? 1.0 : 0.0,
+                    child: _miniPill(
+                      icon: playerProvider.brightness > 0
+                          ? Icons.brightness_high_rounded
+                          : playerProvider.brightness < 0
+                          ? Icons.brightness_low_rounded
+                          : Icons.brightness_medium_rounded,
+                      label: '${(playerProvider.brightness * 100).round()}%',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Center - minimalist play/pause
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.35),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          shape: BoxShape.circle,
+                      IconButton(
+                        icon: Icon(
+                          playerProvider.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
                         ),
-                        child: Icon(
-                          playerProvider.brightness > 0
-                              ? Icons.brightness_high_rounded
-                              : playerProvider.brightness < 0
-                              ? Icons.brightness_low_rounded
-                              : Icons.brightness_medium_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
+                        color: Colors.white,
+                        iconSize: 34,
+                        onPressed: playerProvider.isBuffering
+                            ? null
+                            : playerProvider.playOrPause,
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          'Brightness\n${(playerProvider.brightness * 100).round()}%',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      if (playerProvider.isBuffering)
+                        CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white.withOpacity(0.9),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Center - Play/Pause area
-            Expanded(
-              flex: 2,
-              child: Consumer<ThemeProvider>(
-                builder: (context, themeProvider, child) {
-                  return Center(
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            themeProvider.primaryColor.withOpacity(0.8),
-                            themeProvider.secondaryColor.withOpacity(0.8),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: themeProvider.primaryColor.withOpacity(0.3),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              playerProvider.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                            ),
-                            color: Colors.white,
-                            iconSize: 40,
-                            onPressed: playerProvider.isBuffering
-                                ? null
-                                : playerProvider.playOrPause,
-                          ),
-                          if (playerProvider.isBuffering)
-                            CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white.withOpacity(0.8),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Right side - Volume control
+            // Right side - Volume gesture
             Expanded(
               child: GestureDetector(
                 onPanUpdate: (details) {
-                  final delta = -details.delta.dy / 200;
+                  final delta = -details.delta.dy / 220;
                   final newVolume = (playerProvider.volume + delta).clamp(
                     0.0,
                     1.0,
                   );
                   playerProvider.setVolume(newVolume);
+                  setState(() => _lastVolumeTouch = DateTime.now());
                 },
                 child: Container(
                   color: Colors.transparent,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          playerProvider.isMuted || playerProvider.volume == 0
-                              ? Icons.volume_off_rounded
-                              : playerProvider.volume < 0.5
-                              ? Icons.volume_down_rounded
-                              : Icons.volume_up_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          'Volume\n${(playerProvider.volume * 100).round()}%',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 18),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _showVolume ? 1.0 : 0.0,
+                    child: _miniPill(
+                      icon: playerProvider.isMuted || playerProvider.volume == 0
+                          ? Icons.volume_off_rounded
+                          : playerProvider.volume < 0.5
+                          ? Icons.volume_down_rounded
+                          : Icons.volume_up_rounded,
+                      label: '${(playerProvider.volume * 100).round()}%',
+                    ),
                   ),
                 ),
               ),
@@ -280,70 +228,118 @@ class PlayerOverlay extends StatelessWidget {
   void _showOptionsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black87,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.speed, color: Colors.white),
-              title: const Text(
-                'Playback Speed',
-                style: TextStyle(color: Colors.white),
+      backgroundColor: const Color(0xFF141414),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _sheetItem(
+                icon: Icons.speed,
+                label: 'Playback Speed',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSpeedDialog(context);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showSpeedDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.aspect_ratio, color: Colors.white),
-              title: const Text(
-                'Aspect Ratio',
-                style: TextStyle(color: Colors.white),
+              _sheetItem(
+                icon: Icons.aspect_ratio,
+                label: 'Aspect Ratio',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAspectRatioDialog(context);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showAspectRatioDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.subtitles, color: Colors.white),
-              title: const Text(
-                'Subtitles',
-                style: TextStyle(color: Colors.white),
+              _sheetItem(
+                icon: Icons.subtitles,
+                label: 'Subtitles',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSubtitleDialog(context);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showSubtitleDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.audiotrack, color: Colors.white),
-              title: const Text(
-                'Audio Track',
-                style: TextStyle(color: Colors.white),
+              _sheetItem(
+                icon: Icons.audiotrack,
+                label: 'Audio Track',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAudioTrackDialog(context);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showAudioTrackDialog(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info, color: Colors.white),
-              title: const Text(
-                'Media Info',
-                style: TextStyle(color: Colors.white),
+              _sheetItem(
+                icon: Icons.info,
+                label: 'Media Info',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showMediaInfoDialog(context);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showMediaInfoDialog(context);
-              },
-            ),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  // --- Small helpers for minimalist UI ---
+  Widget _miniPill({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _glassIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+      ),
+      child: IconButton(
+        icon: Icon(icon),
+        color: Colors.white,
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  Widget _sheetItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
+      dense: true,
+      horizontalTitleGap: 8,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 
@@ -402,16 +398,42 @@ class PlayerOverlay extends StatelessWidget {
     );
   }
 
-  void _showSubtitleDialog(BuildContext context) {
+
+
+
+  Future<void> _showSubtitleDialog(BuildContext context) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Subtitles'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: Text('None')),
-            ListTile(title: Text('Load from file...')),
+            ListTile(
+              title: const Text('None'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Implement remove subtitles
+              },
+            ),
+            ListTile(
+              title: const Text('Load from file...'),
+              onTap: () async {
+                Navigator.pop(context);
+                FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['srt', 'ass', 'vtt'],
+                );
+
+                if (result != null) {
+                  String? subtitlePath = result.files.single.path;
+                  // TODO: Implement load subtitles from path
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Loaded subtitle: $subtitlePath')),
+                  );
+                }
+              },
+            ),
           ],
         ),
         actions: [

@@ -108,44 +108,25 @@ class PlayerControls extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Secondary controls
+              // Secondary controls (minimal)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Volume control
                   _buildVolumeControl(context, playerProvider),
-
-                  // Playback speed
+                  const SizedBox(width: 10),
                   _buildSpeedControl(context, playerProvider),
-
-                  // Audio track selector
+                  const SizedBox(width: 10),
                   _AudioTrackButton(),
-
-                  // Repeat mode
-                  IconButton(
-                    icon: _getRepeatIcon(playerProvider.repeatMode),
-                    color: Colors.white,
-                    onPressed: playerProvider.toggleRepeatMode,
-                  ),
-
-                  // Aspect ratio toggle
+                  const SizedBox(width: 10),
                   IconButton(
                     tooltip: 'Aspect Ratio',
                     icon: const Icon(Icons.aspect_ratio),
                     color: Colors.white,
                     onPressed: () => playerProvider.cycleAspectRatio(),
                   ),
-
-                  // Fit toggle
+                  const SizedBox(width: 6),
                   IconButton(
-                    tooltip: 'Fit Mode',
-                    icon: const Icon(Icons.fit_screen),
-                    color: Colors.white,
-                    onPressed: () => playerProvider.cycleFit(),
-                  ),
-
-                  // Fullscreen toggle
-                  IconButton(
+                    tooltip: 'Fullscreen',
                     icon: Icon(
                       playerProvider.isFullscreen
                           ? Icons.fullscreen_exit

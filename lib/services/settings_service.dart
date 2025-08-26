@@ -80,6 +80,10 @@ class SettingsService {
     await _prefs.setStringList(_keyRecentFiles, recent);
   }
 
+  Future<void> clearRecentFiles() async {
+    await _prefs.setStringList(_keyRecentFiles, []);
+  }
+
   // Last played position
   Duration getLastPlayedPosition(String filePath) {
     final key = '$_keyLastPlayedPosition$filePath';
@@ -178,4 +182,13 @@ enum ThemePreset {
   lushMeadow,
   digitalMint,
   gentleOcean,
+  // New presets (appended to preserve existing saved indices)
+  auroraBorealis,
+  royalAmethyst,
+  lavaSunrise,
+  aquaMarine,
+  steelMidnight,
+  cherryBlossom,
+  amberTeal,
+  graphiteBlue,
 }
