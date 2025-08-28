@@ -177,34 +177,37 @@ class PlaylistDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: playlist.files.isEmpty
-          ? _buildEmptyPlaylist(context)
-          : ListView.builder(
-              itemCount: playlist.files.length,
-              itemBuilder: (context, index) {
-                final file = playlist.files[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    child: Icon(
-                      file.type == MediaType.video
-                          ? Icons.video_file
-                          : Icons.audio_file,
-                      color: Colors.white,
-                    ),
+      body: Consumer<MediaProvider>(
+        builder: (context, mediaProvider, _) {
+          final files =
+              playlist.files; // same instance; Consumer ensures rebuild
+          if (files.isEmpty) return _buildEmptyPlaylist(context);
+          return ListView.builder(
+            itemCount: files.length,
+            itemBuilder: (context, index) {
+              final file = files[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  child: Icon(
+                    file.type == MediaType.video
+                        ? Icons.video_file
+                        : Icons.audio_file,
+                    color: Colors.white,
                   ),
-                  title: Text(file.name),
-                  subtitle: Text(
-                    '${file.formattedSize} • ${file.formattedDate}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () => _removeFromPlaylist(context, file),
-                  ),
-                  onTap: () => _playFile(context, file),
-                );
-              },
-            ),
+                ),
+                title: Text(file.name),
+                subtitle: Text('${file.formattedSize} • ${file.formattedDate}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed: () => _removeFromPlaylist(context, file),
+                ),
+                onTap: () => _playFile(context, file),
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addFilesToPlaylist(context),
         child: const Icon(Icons.add),
@@ -273,12 +276,20 @@ class PlaylistDetailScreen extends StatelessWidget {
     context.read<MediaProvider>().removeFromPlaylist(playlist, file);
   }
 
-  void _addFilesToPlaylist(BuildContext context) {
-    // This would show a file selection dialog
-    // For now, just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('File selection dialog would appear here')),
-    );
+  Future<void> _addFilesToPlaylist(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<MediaProvider>().pickAndAddFilesToPlaylist(playlist);
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Files added to playlist')),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to add files')),
+      );
+    }
   }
 
   void _handleMenuAction(BuildContext context, String action) {
@@ -307,7 +318,7 @@ class PlaylistDetailScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              playlist.files.clear();
+              context.read<MediaProvider>().clearPlaylist(playlist);
               Navigator.of(context).pop();
             },
             child: const Text('Clear'),

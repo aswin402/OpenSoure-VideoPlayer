@@ -88,6 +88,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
               const PopupMenuItem(
+                value: 'rescan',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Rescan Library'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'add_files',
                 child: Row(
                   children: [
@@ -313,6 +323,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'scan_folder':
         // Open a directory picker and scan the selected folder
         await mediaProvider.selectAndScanDirectory();
+        break;
+      case 'rescan':
+        await mediaProvider.loadFiles(force: true, regenerateThumbnails: false);
         break;
       case 'add_files':
         await mediaProvider.addFiles();

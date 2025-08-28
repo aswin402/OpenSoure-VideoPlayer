@@ -129,7 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     Text(
                       'Loading settings...',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 16,
                       ),
                     ),
@@ -164,7 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
@@ -177,9 +177,9 @@ class _SettingsScreenState extends State<SettingsScreen>
           fontWeight: FontWeight.w500,
         ),
         indicator: BoxDecoration(
-          color: theme.cardColor.withOpacity(0.95),
+          color: theme.cardColor.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         tabs: const [
           Tab(text: 'Playback'),
@@ -595,10 +595,10 @@ class _SettingsCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.22),
+              color: Colors.black.withValues(alpha: 0.22),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),

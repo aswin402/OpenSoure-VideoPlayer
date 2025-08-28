@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/media_provider.dart';
 import '../models/media_file.dart';
 
 class MediaList extends StatefulWidget {
@@ -90,6 +92,26 @@ class _MediaListState extends State<MediaList> {
                     ),
                   ),
                   const PopupMenuItem(
+                    value: 'rename',
+                    child: Row(
+                      children: [
+                        Icon(Icons.drive_file_rename_outline),
+                        SizedBox(width: 8),
+                        Text('Rename'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline),
+                        SizedBox(width: 8),
+                        Text('Delete'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: 'properties',
                     child: Row(
                       children: [
@@ -142,6 +164,12 @@ class _MediaListState extends State<MediaList> {
       case 'add_to_playlist':
         _showAddToPlaylistDialog(context, file);
         break;
+      case 'rename':
+        _showRenameDialog(context, file);
+        break;
+      case 'delete':
+        _confirmDelete(context, file);
+        break;
       case 'properties':
         _showPropertiesDialog(context, file);
         break;
@@ -149,15 +177,45 @@ class _MediaListState extends State<MediaList> {
   }
 
   void _showAddToPlaylistDialog(BuildContext context, MediaFile file) {
+    final mediaProvider = context.read<MediaProvider>();
+    final playlists = mediaProvider.playlists;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add to Playlist'),
-        content: const Text('Playlist selection would appear here'),
+        content: playlists.isEmpty
+            ? const Text(
+                'No playlists yet. Create one from the Playlists page.',
+              )
+            : SizedBox(
+                width: 380,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: playlists.length,
+                  itemBuilder: (context, index) {
+                    final pl = playlists[index];
+                    final already = pl.files.any((f) => f.path == file.path);
+                    return ListTile(
+                      title: Text(pl.name),
+                      subtitle: Text('${pl.files.length} items'),
+                      trailing: already
+                          ? const Icon(Icons.check, color: Colors.green)
+                          : null,
+                      onTap: () {
+                        mediaProvider.addToPlaylist(pl, file);
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Added to ${pl.name}')),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -183,6 +241,76 @@ class _MediaListState extends State<MediaList> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRenameDialog(BuildContext context, MediaFile file) {
+    final controller = TextEditingController(text: file.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'New name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                final messenger = ScaffoldMessenger.of(context);
+                final ok = await context.read<MediaProvider>().rename(
+                  file,
+                  newName,
+                );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? 'Renamed to $newName' : 'Rename failed'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, MediaFile file) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete File'),
+        content: Text(
+          'Are you sure you want to delete "${file.name}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final ok = await context.read<MediaProvider>().delete(file);
+              if (!context.mounted) return;
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(ok ? 'Deleted' : 'Delete failed')),
+              );
+            },
+            child: const Text('Delete'),
           ),
         ],
       ),

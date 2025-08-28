@@ -13,6 +13,7 @@ import '../widgets/empty_state.dart';
 import '../screens/player_screen.dart';
 import '../screens/playlists_screen.dart';
 import '../screens/settings_screen.dart';
+import '../widgets/mini_player.dart';
 
 enum NavigationItem { player, library, playlists, favorites }
 
@@ -44,18 +45,26 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           _buildSidebar(),
           // Main content
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF121212),
-                    Theme.of(context).primaryColor.withValues(alpha: 0.05),
-                  ],
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF121212),
+                        Theme.of(context).primaryColor.withValues(alpha: 0.05),
+                      ],
+                    ),
+                  ),
+                  child: _buildMainContent(),
                 ),
-              ),
-              child: _buildMainContent(),
+                // Mini player overlay (PiP-like)
+                Positioned.fill(
+                  child: IgnorePointer(ignoring: false, child: MiniPlayer()),
+                ),
+              ],
             ),
           ),
         ],
@@ -130,7 +139,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                 ),
               ),
               Divider(
-                color: themeProvider.primaryColor.withOpacity(0.3),
+                color: themeProvider.primaryColor.withValues(alpha: 0.3),
                 height: 1,
               ),
               const SizedBox(height: 20),
@@ -143,7 +152,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   child: Text(
                     'NAVIGATION',
                     style: TextStyle(
-                      color: themeProvider.secondaryColor.withOpacity(0.8),
+                      color: themeProvider.secondaryColor.withValues(
+                        alpha: 0.8,
+                      ),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
@@ -239,7 +250,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               });
             },
             borderRadius: BorderRadius.circular(8),
-            hoverColor: themeProvider.secondaryColor.withOpacity(0.1),
+            hoverColor: themeProvider.secondaryColor.withValues(alpha: 0.1),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
@@ -416,7 +427,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Theme.of(context).primaryColor.withOpacity(0.1),
+                    Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     Colors.transparent,
                   ],
                 ),
@@ -442,7 +453,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                             Text(
                               '${mediaProvider.filteredFiles.length} files • ${mediaProvider.allFiles.length} total',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 14,
                               ),
                             ),
@@ -455,12 +466,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).primaryColor.withOpacity(0.2),
+                          ).primaryColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: Theme.of(
                               context,
-                            ).primaryColor.withOpacity(0.3),
+                            ).primaryColor.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
@@ -567,7 +578,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         ),
         child: IconButton(
           icon: Icon(icon),
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.7),
           onPressed: onPressed,
         ),
       ),
@@ -588,7 +601,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           Text(
             'Loading media files...',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 16,
             ),
           ),
@@ -654,17 +667,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   color: themeProvider.secondaryColor,
                 ),
                 filled: true,
-                fillColor: themeProvider.primaryColor.withOpacity(0.1),
+                fillColor: themeProvider.primaryColor.withValues(alpha: 0.1),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: themeProvider.primaryColor.withOpacity(0.3),
+                    color: themeProvider.primaryColor.withValues(alpha: 0.3),
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: themeProvider.primaryColor.withOpacity(0.3),
+                    color: themeProvider.primaryColor.withValues(alpha: 0.3),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
@@ -855,7 +868,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   side: BorderSide(
-                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                    color: Theme.of(
+                      context,
+                    ).primaryColor.withValues(alpha: 0.5),
                   ),
                 ),
               ),

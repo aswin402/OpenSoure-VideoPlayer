@@ -50,6 +50,19 @@ class PlayerProvider extends ChangeNotifier {
   RepeatMode get repeatMode => _repeatMode;
   bool get isMuted => _isMuted;
 
+  // Mini player visibility
+  bool _miniPlayerVisible = false;
+  bool get miniPlayerVisible => _miniPlayerVisible;
+  void showMiniPlayer() {
+    _miniPlayerVisible = true;
+    notifyListeners();
+  }
+
+  void hideMiniPlayer() {
+    _miniPlayerVisible = false;
+    notifyListeners();
+  }
+
   // Video layout getters
   BoxFit get videoFit => _videoFit;
   double? get aspectRatio => _aspectRatio;

@@ -13,12 +13,133 @@ class MediaTile extends StatefulWidget {
 
   const MediaTile({super.key, required this.file, required this.onTap});
 
+  // Helper actions used by grid tile popup
+  static Future<void> showRenameDialog(
+    BuildContext context,
+    MediaFile file,
+  ) async {
+    final controller = TextEditingController(text: file.name);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'New name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                final messenger = ScaffoldMessenger.of(context);
+                final ok = await context.read<MediaProvider>().rename(
+                  file,
+                  newName,
+                );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? 'Renamed to $newName' : 'Rename failed'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> confirmDelete(
+    BuildContext context,
+    MediaFile file,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete File'),
+        content: Text(
+          'Are you sure you want to delete "${file.name}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final ok = await context.read<MediaProvider>().delete(file);
+              if (!context.mounted) return;
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(ok ? 'Deleted' : 'Delete failed')),
+              );
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   State<MediaTile> createState() => _MediaTileState();
 }
 
 class _MediaTileState extends State<MediaTile> {
   bool _isHovered = false;
+
+  void _showPropertiesDialog(BuildContext context, MediaFile file) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(file.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _prop('Path', file.path),
+            _prop('Size', file.formattedSize),
+            _prop('Type', file.extension.toUpperCase()),
+            _prop('Modified', file.formattedDate),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _prop(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            '$label:',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontFamily: 'monospace')),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +325,95 @@ class _MediaTileState extends State<MediaTile> {
                                       size: 40,
                                       color: Colors.white,
                                     ),
+                                  ),
+                                ),
+                              ),
+
+                            // Hover actions menu (top-right)
+                            if (_isHovered)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Material(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: PopupMenuButton<String>(
+                                    tooltip: 'Actions',
+                                    color: const Color(0xFF1E1E1E),
+                                    icon: const Icon(
+                                      Icons.more_vert,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'play':
+                                          widget.onTap();
+                                          break;
+                                        case 'rename':
+                                          MediaTile.showRenameDialog(
+                                            context,
+                                            widget.file,
+                                          );
+                                          break;
+                                        case 'delete':
+                                          MediaTile.confirmDelete(
+                                            context,
+                                            widget.file,
+                                          );
+                                          break;
+                                        case 'properties':
+                                          _showPropertiesDialog(
+                                            context,
+                                            widget.file,
+                                          );
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(
+                                        value: 'play',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.play_arrow),
+                                            SizedBox(width: 8),
+                                            Text('Play'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'rename',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.drive_file_rename_outline,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Rename'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline),
+                                            SizedBox(width: 8),
+                                            Text('Delete'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'properties',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.info),
+                                            SizedBox(width: 8),
+                                            Text('Properties'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

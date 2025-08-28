@@ -229,6 +229,43 @@ class FileService {
     return supportedExtensions.contains(extension);
   }
 
+  // Rename a file within the same directory; returns new absolute path on success
+  Future<String?> renameFile(String oldPath, String newName) async {
+    try {
+      final file = File(oldPath);
+      if (!await file.exists()) return null;
+      final dir = file.parent.path;
+      final newPath = p.join(dir, newName);
+      // If newName has no extension, keep the old one
+      if (!newName.contains('.') && oldPath.contains('.')) {
+        final ext = p.extension(oldPath);
+        final withExt = p.join(dir, '$newName$ext');
+        final renamed = await file.rename(withExt);
+        return renamed.path;
+      }
+      final renamed = await file.rename(newPath);
+      return renamed.path;
+    } catch (e) {
+      debugPrint('Rename failed for $oldPath -> $newName: $e');
+      return null;
+    }
+  }
+
+  // Delete a file; returns true if deleted
+  Future<bool> deleteFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Delete failed for $path: $e');
+      return false;
+    }
+  }
+
   Future<Directory> getAppDirectory() async {
     return await getApplicationDocumentsDirectory();
   }

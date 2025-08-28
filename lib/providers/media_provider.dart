@@ -188,6 +188,72 @@ class MediaProvider extends ChangeNotifier {
     _allFiles = _allFiles.where((file) => seen.add(file.path)).toList();
   }
 
+  // Rename a media file and update collections/cache
+  Future<bool> rename(MediaFile file, String newName) async {
+    final newPath = await _fileService.renameFile(file.path, newName);
+    if (newPath == null) return false;
+
+    final updated = MediaFile.fromFile(File(newPath));
+
+    // Update all references
+    final idx = _allFiles.indexWhere((f) => f.path == file.path);
+    if (idx != -1) _allFiles[idx] = updated;
+    final fidx = _filteredFiles.indexWhere((f) => f.path == file.path);
+    if (fidx != -1) _filteredFiles[fidx] = updated;
+    final ridx = _recentFiles.indexWhere((f) => f.path == file.path);
+    if (ridx != -1) _recentFiles[ridx] = updated;
+
+    // Update playlists
+    for (final pl in _playlists) {
+      final pidx = pl.files.indexWhere((f) => f.path == file.path);
+      if (pidx != -1) pl.files[pidx] = updated;
+    }
+
+    // Persist cache
+    await _settingsService.setCachedFiles(
+      _allFiles.map((f) => f.path).toList(),
+    );
+
+    // If currently playing
+    if (_currentFile?.path == file.path) {
+      _currentFile = updated;
+    }
+
+    _applyFilters();
+    notifyListeners();
+    return true;
+  }
+
+  // Delete a media file and remove from collections/cache
+  Future<bool> delete(MediaFile file) async {
+    final ok = await _fileService.deleteFile(file.path);
+    if (!ok) return false;
+
+    _allFiles.removeWhere((f) => f.path == file.path);
+    _filteredFiles.removeWhere((f) => f.path == file.path);
+    _recentFiles.removeWhere((f) => f.path == file.path);
+
+    for (final pl in _playlists) {
+      pl.files.removeWhere((f) => f.path == file.path);
+    }
+
+    // Persist cache
+    await _settingsService.setCachedFiles(
+      _allFiles.map((f) => f.path).toList(),
+    );
+
+    // If deleting current file, clear current selection
+    if (_currentFile?.path == file.path) {
+      _currentFile = null;
+      _currentPlaylist = null;
+      _currentIndex = 0;
+    }
+
+    _applyFilters();
+    notifyListeners();
+    return true;
+  }
+
   void setCurrentFile(MediaFile file, {mx.Playlist? playlist}) {
     _currentFile = file;
     _currentPlaylist = playlist;
@@ -341,9 +407,49 @@ class MediaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addFilesToPlaylist(mx.Playlist playlist, List<MediaFile> files) {
+    for (final f in files) {
+      playlist.addFile(f);
+    }
+    notifyListeners();
+  }
+
   void removeFromPlaylist(mx.Playlist playlist, MediaFile file) {
     playlist.removeFile(file);
     notifyListeners();
+  }
+
+  void clearPlaylist(mx.Playlist playlist) {
+    playlist.files.clear();
+    playlist.lastModified = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> pickAndAddFilesToPlaylist(mx.Playlist playlist) async {
+    try {
+      // Pick files from system
+      final picked = await _fileService.pickFiles();
+      if (picked.isEmpty) return;
+
+      // Merge into library
+      _allFiles.addAll(picked);
+      _removeDuplicates();
+
+      // Persist cache so it survives restarts
+      await _settingsService.setCachedFiles(
+        _allFiles.map((f) => f.path).toList(),
+      );
+      await _settingsService.setLastScanTime(DateTime.now());
+
+      // Enrich in background and refresh filters
+      _backgroundEnrich(picked);
+      _applyFilters();
+
+      // Add to playlist
+      addFilesToPlaylist(playlist, picked);
+    } catch (e) {
+      debugPrint('Error picking/adding files to playlist: $e');
+    }
   }
 
   void deletePlaylist(mx.Playlist playlist) {

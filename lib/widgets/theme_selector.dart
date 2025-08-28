@@ -36,7 +36,9 @@ class ThemeSelector extends StatelessWidget {
   }
 
   Widget _buildThemeModeSelector(
-      BuildContext context, ThemeProvider themeProvider) {
+    BuildContext context,
+    ThemeProvider themeProvider,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -45,8 +47,7 @@ class ThemeSelector extends StatelessWidget {
             title: 'System',
             subtitle: 'Follow system',
             icon: Icons.brightness_auto_rounded,
-            isSelected:
-                themeProvider.mode == settings_service.ThemeMode.system,
+            isSelected: themeProvider.mode == settings_service.ThemeMode.system,
             onTap: () =>
                 themeProvider.setThemeMode(settings_service.ThemeMode.system),
           ),
@@ -116,7 +117,7 @@ class ThemeSelector extends StatelessWidget {
                       color: Colors.black.withOpacity(0.15),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -194,7 +195,7 @@ class ThemeSelector extends StatelessWidget {
                               color: colors.first.withOpacity(0.25),
                               blurRadius: 6,
                               spreadRadius: 1,
-                            )
+                            ),
                           ]
                         : null,
                   ),
@@ -269,6 +270,22 @@ class ThemeSelector extends StatelessWidget {
         return [const Color(0xFFFFC371), const Color(0xFF00C6A7)];
       case settings_service.ThemePreset.graphiteBlue:
         return [const Color(0xFF283048), const Color(0xFF859398)];
+      case settings_service.ThemePreset.electricViolet:
+        return [const Color(0xFF7F00FF), const Color(0xFFE100FF)];
+      case settings_service.ThemePreset.cyberPunk:
+        return [const Color(0xFF0f0c29), const Color(0xFFf72585)];
+      case settings_service.ThemePreset.arcticSky:
+        return [const Color(0xFF1e3c72), const Color(0xFF2a5298)];
+      case settings_service.ThemePreset.emeraldWave:
+        return [const Color(0xFF0bab64), const Color(0xFF3bb78f)];
+      case settings_service.ThemePreset.citrusPop:
+        return [const Color(0xFFf7971e), const Color(0xFFffd200)];
+      case settings_service.ThemePreset.roseGold:
+        return [const Color(0xFFb24592), const Color(0xFFf15f79)];
+      case settings_service.ThemePreset.desertDusk:
+        return [const Color(0xFF3E5151), const Color(0xFFDECBA4)];
+      case settings_service.ThemePreset.oceanSunrise:
+        return [const Color(0xFF2BC0E4), const Color(0xFFEAECC6)];
     }
   }
 
@@ -308,6 +325,22 @@ class ThemeSelector extends StatelessWidget {
         return 'Amber\nTeal';
       case settings_service.ThemePreset.graphiteBlue:
         return 'Graphite\nBlue';
+      case settings_service.ThemePreset.electricViolet:
+        return 'Electric\nViolet';
+      case settings_service.ThemePreset.cyberPunk:
+        return 'Cyber\nPunk';
+      case settings_service.ThemePreset.arcticSky:
+        return 'Arctic\nSky';
+      case settings_service.ThemePreset.emeraldWave:
+        return 'Emerald\nWave';
+      case settings_service.ThemePreset.citrusPop:
+        return 'Citrus\nPop';
+      case settings_service.ThemePreset.roseGold:
+        return 'Rose\nGold';
+      case settings_service.ThemePreset.desertDusk:
+        return 'Desert\nDusk';
+      case settings_service.ThemePreset.oceanSunrise:
+        return 'Ocean\nSunrise';
     }
   }
 }

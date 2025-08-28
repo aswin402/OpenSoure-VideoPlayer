@@ -115,6 +115,46 @@ class ThemeProvider extends flutter.ChangeNotifier {
           const flutter.Color(0xFF283048),
           const flutter.Color(0xFF859398),
         );
+      case settings_service.ThemePreset.electricViolet:
+        return (
+          const flutter.Color(0xFF7F00FF),
+          const flutter.Color(0xFFE100FF),
+        );
+      case settings_service.ThemePreset.cyberPunk:
+        return (
+          const flutter.Color(0xFF0f0c29),
+          const flutter.Color(0xFFf72585),
+        );
+      case settings_service.ThemePreset.arcticSky:
+        return (
+          const flutter.Color(0xFF1e3c72),
+          const flutter.Color(0xFF2a5298),
+        );
+      case settings_service.ThemePreset.emeraldWave:
+        return (
+          const flutter.Color(0xFF0bab64),
+          const flutter.Color(0xFF3bb78f),
+        );
+      case settings_service.ThemePreset.citrusPop:
+        return (
+          const flutter.Color(0xFFf7971e),
+          const flutter.Color(0xFFffd200),
+        );
+      case settings_service.ThemePreset.roseGold:
+        return (
+          const flutter.Color(0xFFb24592),
+          const flutter.Color(0xFFf15f79),
+        );
+      case settings_service.ThemePreset.desertDusk:
+        return (
+          const flutter.Color(0xFF3E5151),
+          const flutter.Color(0xFFDECBA4),
+        );
+      case settings_service.ThemePreset.oceanSunrise:
+        return (
+          const flutter.Color(0xFF2BC0E4),
+          const flutter.Color(0xFFEAECC6),
+        );
     }
   }
 

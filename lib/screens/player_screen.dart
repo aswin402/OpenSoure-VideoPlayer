@@ -197,6 +197,19 @@ class _PlayerScreenState extends State<PlayerScreen>
                               }
                             }
                           },
+                          // Horizontal pan = swipe to seek
+                          onHorizontalDragUpdate: (details) {
+                            final delta = details.delta.dx; // pixels
+                            // Simple mapping: 8px ~ 1s
+                            final seconds = (delta / 8).round();
+                            if (seconds != 0) {
+                              playerProvider.seekRelative(
+                                Duration(seconds: seconds),
+                              );
+                            }
+                          },
+                          onHorizontalDragStart: (_) => _showControls(),
+                          onHorizontalDragEnd: (_) => _restartHideTimer(),
                           child: Video(
                             controller: playerProvider.videoController,
                             controls: NoVideoControls,

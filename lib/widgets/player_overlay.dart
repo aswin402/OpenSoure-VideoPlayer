@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/media_provider.dart';
-  import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PlayerOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -100,6 +100,11 @@ class _PlayerOverlayState extends State<PlayerOverlay> {
                 },
               ),
             ),
+            _glassIconButton(
+              icon: Icons.picture_in_picture_alt_rounded,
+              onTap: () => context.read<PlayerProvider>().showMiniPlayer(),
+            ),
+            const SizedBox(width: 6),
             _glassIconButton(
               icon: Icons.more_vert,
               onTap: () => _showOptionsMenu(context),
@@ -397,9 +402,6 @@ class _PlayerOverlayState extends State<PlayerOverlay> {
       ),
     );
   }
-
-
-
 
   Future<void> _showSubtitleDialog(BuildContext context) async {
     showDialog(

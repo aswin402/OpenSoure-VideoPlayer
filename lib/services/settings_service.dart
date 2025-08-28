@@ -16,6 +16,16 @@ class SettingsService {
   static const String _keyCachedFiles = 'cached_files';
   static const String _keyThemePreset = 'theme_preset';
   static const String _keyResumePlayback = 'resume_playback';
+  // Linux desktop extras
+  static const String _keySeekStepSeconds = 'seek_step_seconds';
+  static const String _keyMiniPlayerEnabled = 'mini_player_enabled';
+  static const String _keyRescanHours = 'rescan_hours';
+  static const String _keySubtitleBgOpacity = 'subtitle_bg_opacity';
+  static const String _keySubtitleOutline = 'subtitle_outline';
+  static const String _keySubtitleShadow = 'subtitle_shadow';
+  static const String _keyDefaultAspectRatio = 'default_aspect_ratio';
+  static const String _keyDefaultVideoFit = 'default_video_fit';
+  static const String _keyLanguage = 'language_pref';
 
   late SharedPreferences _prefs;
 
@@ -145,8 +155,8 @@ class SettingsService {
     final now = DateTime.now();
     final difference = now.difference(lastScan);
 
-    // Rescan if it's been more than 24 hours
-    return difference.inHours > 24;
+    final hours = rescanIntervalHours; // user-configurable
+    return difference.inHours >= hours;
   }
 
   Future<void> setLastScanTime(DateTime time) async {
@@ -161,11 +171,72 @@ class SettingsService {
     await _prefs.setStringList(_keyCachedFiles, files);
   }
 
+  // Linux desktop extras: getters/setters
+  int get seekStepSeconds => _prefs.getInt(_keySeekStepSeconds) ?? 5;
+  Future<void> setSeekStepSeconds(int seconds) async {
+    await _prefs.setInt(_keySeekStepSeconds, seconds.clamp(1, 30));
+  }
+
+  bool get miniPlayerEnabled => _prefs.getBool(_keyMiniPlayerEnabled) ?? true;
+  Future<void> setMiniPlayerEnabled(bool enabled) async {
+    await _prefs.setBool(_keyMiniPlayerEnabled, enabled);
+  }
+
+  int get rescanIntervalHours => _prefs.getInt(_keyRescanHours) ?? 24;
+  Future<void> setRescanIntervalHours(int hours) async {
+    await _prefs.setInt(_keyRescanHours, hours.clamp(1, 168));
+  }
+
+  double get subtitleBgOpacity =>
+      _prefs.getDouble(_keySubtitleBgOpacity) ?? 0.0;
+  Future<void> setSubtitleBgOpacity(double value) async {
+    await _prefs.setDouble(_keySubtitleBgOpacity, value.clamp(0.0, 1.0));
+  }
+
+  double get subtitleOutline => _prefs.getDouble(_keySubtitleOutline) ?? 0.0;
+  Future<void> setSubtitleOutline(double value) async {
+    await _prefs.setDouble(_keySubtitleOutline, value.clamp(0.0, 5.0));
+  }
+
+  bool get subtitleShadow => _prefs.getBool(_keySubtitleShadow) ?? true;
+  Future<void> setSubtitleShadow(bool value) async {
+    await _prefs.setBool(_keySubtitleShadow, value);
+  }
+
+  // Aspect ratio enum persisted as index
+  DefaultAspectRatio get defaultAspectRatio {
+    final idx = _prefs.getInt(_keyDefaultAspectRatio) ?? 0;
+    return DefaultAspectRatio.values[idx];
+  }
+
+  Future<void> setDefaultAspectRatio(DefaultAspectRatio v) async {
+    await _prefs.setInt(_keyDefaultAspectRatio, v.index);
+  }
+
+  DefaultVideoFit get defaultVideoFit {
+    final idx = _prefs.getInt(_keyDefaultVideoFit) ?? 0;
+    return DefaultVideoFit.values[idx];
+  }
+
+  Future<void> setDefaultVideoFit(DefaultVideoFit v) async {
+    await _prefs.setInt(_keyDefaultVideoFit, v.index);
+  }
+
+  String get languagePref => _prefs.getString(_keyLanguage) ?? 'en';
+  Future<void> setLanguagePref(String code) async {
+    await _prefs.setString(_keyLanguage, code);
+  }
+
   // Clear all settings
   Future<void> clearAll() async {
     await _prefs.clear();
   }
 }
+
+// New enums for persisted defaults
+enum DefaultAspectRatio { auto, r16_9, r4_3, r1_1 }
+
+enum DefaultVideoFit { contain, cover, fill }
 
 enum RepeatMode { none, one, all }
 
@@ -191,4 +262,13 @@ enum ThemePreset {
   cherryBlossom,
   amberTeal,
   graphiteBlue,
+  // More presets (keep appending to maintain saved indices)
+  electricViolet,
+  cyberPunk,
+  arcticSky,
+  emeraldWave,
+  citrusPop,
+  roseGold,
+  desertDusk,
+  oceanSunrise,
 }
