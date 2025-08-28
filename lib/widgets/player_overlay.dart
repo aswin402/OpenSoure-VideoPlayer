@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:media_kit/media_kit.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/media_provider.dart';
@@ -404,39 +405,75 @@ class _PlayerOverlayState extends State<PlayerOverlay> {
   }
 
   Future<void> _showSubtitleDialog(BuildContext context) async {
+    final provider = context.read<PlayerProvider>();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Subtitles'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('None'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement remove subtitles
-              },
-            ),
-            ListTile(
-              title: const Text('Load from file...'),
-              onTap: () async {
-                Navigator.pop(context);
-                FilePickerResult? result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: ['srt', 'ass', 'vtt'],
-                );
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 360),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              RadioListTile<SubtitleTrack>(
+                title: const Text('None'),
+                value: SubtitleTrack.no(),
+                groupValue: provider.selectedSubtitleTrack,
+                onChanged: (SubtitleTrack? v) async {
+                  if (v != null) {
+                    await provider.setSubtitleTrack(v);
+                    // ignore: use_build_context_synchronously
+                    Navigator.pop(context);
+                    // ignore: use_build_context_synchronously
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Subtitles turned off')),
+                    );
+                  }
+                },
+              ),
+              ...provider.subtitleTracks.map(
+                (t) => RadioListTile<SubtitleTrack>(
+                  title: Text(t.title ?? 'Track'),
+                  value: t,
+                  groupValue: provider.selectedSubtitleTrack,
+                  onChanged: (SubtitleTrack? v) async {
+                    if (v != null) {
+                      await provider.setSubtitleTrack(v);
+                      // ignore: use_build_context_synchronously
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.file_open),
+                title: const Text('Load from file...'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  FilePickerResult? result = await FilePicker.platform
+                      .pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['srt', 'ass', 'vtt'],
+                      );
 
-                if (result != null) {
-                  String? subtitlePath = result.files.single.path;
-                  // TODO: Implement load subtitles from path
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Loaded subtitle: $subtitlePath')),
-                  );
-                }
-              },
-            ),
-          ],
+                  if (result != null) {
+                    final subtitlePath = result.files.single.path;
+                    if (subtitlePath != null) {
+                      await provider.loadExternalSubtitle(subtitlePath);
+                      // Feedback
+                      // ignore: use_build_context_synchronously
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Loaded subtitle: $subtitlePath'),
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -449,13 +486,30 @@ class _PlayerOverlayState extends State<PlayerOverlay> {
   }
 
   void _showAudioTrackDialog(BuildContext context) {
+    final provider = context.read<PlayerProvider>();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Audio Track'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [ListTile(title: Text('Track 1 (Default)'))],
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 300),
+          child: ListView(
+            shrinkWrap: true,
+            children: provider.audioTracks.map((t) {
+              return RadioListTile<AudioTrack>(
+                title: Text(t.title ?? 'Track'),
+                value: t,
+                groupValue: provider.selectedAudioTrack,
+                onChanged: (AudioTrack? v) async {
+                  if (v != null) {
+                    await provider.setAudioTrack(v);
+                    // ignore: use_build_context_synchronously
+                    Navigator.of(context).pop();
+                  }
+                },
+              );
+            }).toList(),
+          ),
         ),
         actions: [
           TextButton(

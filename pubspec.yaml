@@ -59,6 +59,9 @@ dependencies:
   # Utilities
   mime: ^1.0.4
   video_thumbnail: ^0.5.3
+  
+  # Window management
+  window_manager: ^0.4.2
 
 dev_dependencies:
   flutter_test:

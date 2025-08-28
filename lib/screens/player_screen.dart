@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:mxclone/models/media_file.dart';
 import 'package:provider/provider.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:window_manager/window_manager.dart';
 import '../providers/player_provider.dart';
 import '../providers/media_provider.dart';
 import '../widgets/player_controls.dart';
@@ -210,11 +211,91 @@ class _PlayerScreenState extends State<PlayerScreen>
                           },
                           onHorizontalDragStart: (_) => _showControls(),
                           onHorizontalDragEnd: (_) => _restartHideTimer(),
-                          child: Video(
-                            controller: playerProvider.videoController,
-                            controls: NoVideoControls,
-                            fill: Colors.black, // avoid transparent background
-                            fit: playerProvider.videoFit,
+                          // Scale video with pinch gestures (desktop trackpad & touch)
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final scale = playerProvider.videoScale;
+                              return GestureDetector(
+                                onScaleStart: (_) {},
+                                onScaleUpdate: (details) {
+                                  if (details.scale != 1.0) {
+                                    playerProvider.setVideoScale(
+                                      scale * details.scale,
+                                    );
+                                  }
+                                },
+                                onScaleEnd: (_) {
+                                  // Snap back if close to 1.0
+                                  if ((playerProvider.videoScale - 1.0).abs() <
+                                      0.05) {
+                                    playerProvider.resetVideoScale();
+                                  }
+                                },
+                                child: Transform.scale(
+                                  scale: playerProvider.videoScale,
+                                  child: Video(
+                                    controller: playerProvider.videoController,
+                                    controls: NoVideoControls,
+                                    fill: Colors
+                                        .black, // avoid transparent background
+                                    fit: playerProvider.videoFit,
+                                    subtitleViewConfiguration:
+                                        SubtitleViewConfiguration(
+                                          // Basic styling from settings
+                                          style: TextStyle(
+                                            fontSize: context
+                                                .read<PlayerProvider>()
+                                                .settingsService
+                                                .subtitleSize,
+                                            color: Color(
+                                              context
+                                                  .read<PlayerProvider>()
+                                                  .settingsService
+                                                  .subtitleColor,
+                                            ),
+                                            backgroundColor: Colors.black
+                                                .withValues(
+                                                  alpha: context
+                                                      .read<PlayerProvider>()
+                                                      .settingsService
+                                                      .subtitleBgOpacity,
+                                                ),
+                                            shadows:
+                                                context
+                                                    .read<PlayerProvider>()
+                                                    .settingsService
+                                                    .subtitleShadow
+                                                ? [
+                                                    const Shadow(
+                                                      color: Colors.black87,
+                                                      blurRadius: 4,
+                                                    ),
+                                                  ]
+                                                : context
+                                                          .read<
+                                                            PlayerProvider
+                                                          >()
+                                                          .settingsService
+                                                          .subtitleOutline >
+                                                      0
+                                                ? [
+                                                    Shadow(
+                                                      color: Colors.black,
+                                                      blurRadius: context
+                                                          .read<
+                                                            PlayerProvider
+                                                          >()
+                                                          .settingsService
+                                                          .subtitleOutline,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -223,8 +304,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                     // Brightness overlay
                     if (playerProvider.brightness != 0.0)
                       Container(
-                        color: Colors.black.withOpacity(
-                          playerProvider.brightness < 0
+                        color: Colors.black.withValues(
+                          alpha: playerProvider.brightness < 0
                               ? (-playerProvider.brightness * 0.5).clamp(
                                   0.0,
                                   1.0,
@@ -323,23 +404,15 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  void _toggleFullscreen() {
+  void _toggleFullscreen() async {
     final playerProvider = context.read<PlayerProvider>();
 
     if (playerProvider.isFullscreen) {
       // Exit fullscreen
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
+      await windowManager.setFullScreen(false);
     } else {
       // Enter fullscreen
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      await windowManager.setFullScreen(true);
     }
 
     playerProvider.toggleFullscreen();

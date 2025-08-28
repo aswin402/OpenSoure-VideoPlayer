@@ -32,6 +32,8 @@ class PlayerProvider extends ChangeNotifier {
   BoxFit _videoFit = BoxFit.contain; // default
   // Predefined aspect ratios; null uses source aspect
   double? _aspectRatio; // null => auto
+  // Video scale for pinch-to-zoom (1.0 = default)
+  double _videoScale = 1.0;
 
   // Getters
   Player get player => _player;
@@ -66,6 +68,7 @@ class PlayerProvider extends ChangeNotifier {
   // Video layout getters
   BoxFit get videoFit => _videoFit;
   double? get aspectRatio => _aspectRatio;
+  double get videoScale => _videoScale;
 
   double get progress => _duration.inMilliseconds > 0
       ? _position.inMilliseconds / _duration.inMilliseconds
@@ -76,6 +79,12 @@ class PlayerProvider extends ChangeNotifier {
   AudioTrack? _selectedAudioTrack;
   List<AudioTrack> get audioTracks => _audioTracks;
   AudioTrack? get selectedAudioTrack => _selectedAudioTrack;
+
+  // Subtitle tracks management
+  List<SubtitleTrack> _subtitleTracks = const [];
+  SubtitleTrack? _selectedSubtitleTrack;
+  List<SubtitleTrack> get subtitleTracks => _subtitleTracks;
+  SubtitleTrack? get selectedSubtitleTrack => _selectedSubtitleTrack;
 
   String get positionText => _formatDuration(_position);
   String get durationText => _formatDuration(_duration);
@@ -148,13 +157,15 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Track changes: update available audio tracks and selection
+    // Track changes: update available audio & subtitle tracks and selection
     _player.stream.tracks.listen((tracks) {
       _audioTracks = tracks.audio; // List<AudioTrack>
+      _subtitleTracks = tracks.subtitle; // List<SubtitleTrack>
       notifyListeners();
     });
     _player.stream.track.listen((track) {
       _selectedAudioTrack = track.audio; // AudioTrack?
+      _selectedSubtitleTrack = track.subtitle; // SubtitleTrack?
       notifyListeners();
     });
 
@@ -317,6 +328,28 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
+  // Select subtitle track (including disabling)
+  Future<void> setSubtitleTrack(SubtitleTrack track) async {
+    try {
+      await _player.setSubtitleTrack(track);
+      _selectedSubtitleTrack = track;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to set subtitle track: $e');
+    }
+  }
+
+  // Load external subtitle file
+  Future<void> loadExternalSubtitle(String path) async {
+    try {
+      // Use file path as URI
+      final track = SubtitleTrack.uri(Uri.file(path).toString());
+      await setSubtitleTrack(track);
+    } catch (e) {
+      debugPrint('Failed to load external subtitle: $e');
+    }
+  }
+
   void toggleRepeatMode() {
     switch (_repeatMode) {
       case RepeatMode.none:
@@ -373,6 +406,17 @@ class PlayerProvider extends ChangeNotifier {
     } else {
       _videoFit = BoxFit.contain;
     }
+    notifyListeners();
+  }
+
+  // Pinch-to-zoom control
+  void setVideoScale(double scale) {
+    _videoScale = scale.clamp(0.5, 3.0);
+    notifyListeners();
+  }
+
+  void resetVideoScale() {
+    _videoScale = 1.0;
     notifyListeners();
   }
 

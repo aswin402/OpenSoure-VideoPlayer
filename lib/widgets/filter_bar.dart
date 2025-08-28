@@ -128,7 +128,7 @@ class FilterBar extends StatelessWidget {
                         color: Colors.black.withOpacity(0.15),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
-                      )
+                      ),
                     ]
                   : [],
             ),
@@ -222,6 +222,17 @@ class FilterBar extends StatelessWidget {
               ),
             ),
             DropdownMenuItem(
+              value: SortBy.duration,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.timer_rounded, size: 16),
+                  SizedBox(width: 8),
+                  Text('Duration'),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
               value: SortBy.type,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -257,7 +268,7 @@ class FilterBar extends StatelessWidget {
           currentSortAscending
               ? Icons.keyboard_arrow_up_rounded
               : Icons.keyboard_arrow_down_rounded,
-          color: Theme.of(context).primaryColor,
+          color: Colors.white,
           size: 22,
         ),
         onPressed: () => _handleSortChange(

@@ -349,6 +349,22 @@ class MediaProvider extends ChangeNotifier {
         case SortBy.date:
           comparison = a.lastModified.compareTo(b.lastModified);
           break;
+        case SortBy.duration:
+          // Handle duration sorting - files without duration go to the end
+          final aDuration = a.duration.value ?? Duration.zero;
+          final bDuration = b.duration.value ?? Duration.zero;
+
+          // If both have no duration, sort by name as fallback
+          if (aDuration == Duration.zero && bDuration == Duration.zero) {
+            comparison = a.name.compareTo(b.name);
+          } else if (aDuration == Duration.zero) {
+            comparison = 1; // a goes after b
+          } else if (bDuration == Duration.zero) {
+            comparison = -1; // a goes before b
+          } else {
+            comparison = aDuration.compareTo(bDuration);
+          }
+          break;
         case SortBy.type:
           comparison = a.extension.compareTo(b.extension);
           break;
@@ -484,4 +500,4 @@ class MediaProvider extends ChangeNotifier {
   }
 }
 
-enum SortBy { name, size, date, type }
+enum SortBy { name, size, date, duration, type }
