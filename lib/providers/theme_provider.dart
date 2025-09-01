@@ -9,7 +9,26 @@ class ThemeProvider extends flutter.ChangeNotifier {
   settings_service.ThemeMode _mode = settings_service.ThemeMode.dark;
   settings_service.ThemePreset _preset = settings_service.ThemePreset.deepSpace;
 
+  // Non-blocking initialization for better startup performance
+  void initializeAsync() {
+    if (_initialized) return;
+
+    Future.microtask(() async {
+      try {
+        await _settings.initialize();
+        _mode = _settings.themeMode;
+        _preset = _settings.getThemePreset();
+        _initialized = true;
+        notifyListeners();
+      } catch (e) {
+        flutter.debugPrint('ThemeProvider initialization error: $e');
+      }
+    });
+  }
+
   Future<void> initialize() async {
+    if (_initialized) return;
+
     await _settings.initialize();
     _mode = _settings.themeMode;
     _preset = _settings.getThemePreset();

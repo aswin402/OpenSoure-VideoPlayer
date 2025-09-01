@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
 import '../providers/media_provider.dart';
-import '../providers/theme_provider.dart';
+
 import '../widgets/theme_selector.dart';
 import '../services/settings_service.dart' as settings_service;
 
@@ -374,6 +374,22 @@ class _PlaybackTab extends StatelessWidget {
             onChanged: (v) {
               if (v != null) playerProvider.setPlaybackSpeed(v);
             },
+          ),
+          const SizedBox(height: 12),
+          _ListRow(
+            title: 'Equalizer',
+            subtitle: settingsService.eqEnabled
+                ? {
+                    settings_service.EqPreset.normal: 'Normal',
+                    settings_service.EqPreset.bassBoost: 'Bass Boost',
+                    settings_service.EqPreset.trebleBoost: 'Treble Boost',
+                    settings_service.EqPreset.vocal: 'Vocal',
+                    settings_service.EqPreset.custom: 'Custom',
+                  }[settingsService.eqPreset]!
+                : 'Off',
+            leading: const Icon(Icons.equalizer),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pushNamed('/equalizer'),
           ),
           const Divider(height: 32),
           _ListRow(

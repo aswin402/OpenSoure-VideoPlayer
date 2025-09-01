@@ -90,6 +90,16 @@ class PlayerProvider extends ChangeNotifier {
   String get durationText => _formatDuration(_duration);
   String get remainingText => _formatDuration(_duration - _position);
 
+  // Non-blocking initialization for better startup performance
+  void initializeAsync() {
+    if (_isInitialized || _initializing != null) return;
+
+    _initializing = _doInitialize().catchError((e) {
+      debugPrint('Player async initialization failed: $e');
+      _initializing = null;
+    });
+  }
+
   Future<void> initialize() async {
     if (_isInitialized) return;
     if (_initializing != null) return await _initializing;
@@ -126,6 +136,9 @@ class PlayerProvider extends ChangeNotifier {
     await _player.setVolume(_volume * 100);
     await _player.setRate(_playbackSpeed);
 
+    // Apply equalizer from settings (mpv af via lavfi)
+    await _applyEqualizer();
+
     // Listen to player events
     _player.stream.playing.listen((playing) {
       _isPlaying = playing;
@@ -141,13 +154,11 @@ class PlayerProvider extends ChangeNotifier {
       _position = position;
       notifyListeners();
 
-      // Save position periodically (every 5 seconds for better accuracy)
+      // Save position less frequently (every 15 seconds) to reduce I/O
       if (_currentMedia != null &&
-          position.inSeconds % 5 == 0 &&
+          position.inSeconds % 15 == 0 &&
           position.inSeconds > 0) {
-        debugPrint(
-          'Periodic save: ${position.inSeconds}s for ${_currentMedia!.name}',
-        );
+        // Save asynchronously without blocking
         _settingsService.setLastPlayedPosition(_currentMedia!.path, position);
       }
     });
@@ -186,6 +197,9 @@ class PlayerProvider extends ChangeNotifier {
       debugPrint('Opening media file: ${media.path}');
       await _player.open(Media(media.path));
       debugPrint('Media opened successfully');
+
+      // Re-apply equalizer on new media to ensure active filters persist
+      await _applyEqualizer();
 
       if (resume) {
         final savedPosition = getLastSavedPosition(media);
@@ -309,6 +323,149 @@ class PlayerProvider extends ChangeNotifier {
     _brightness = brightness.clamp(-1.0, 1.0);
     _settingsService.setBrightness(_brightness);
     notifyListeners();
+  }
+
+  // ---- Equalizer integration ----
+  Future<void> applyEqualizerFromSettings() => _applyEqualizer();
+
+  Future<void> _applyEqualizer() async {
+    try {
+      final enabled = _settingsService.eqEnabled;
+
+      if (!enabled) {
+        // Clear any existing audio filters when EQ is disabled
+        try {
+          if (_player.platform is NativePlayer) {
+            await (_player.platform as NativePlayer).setProperty('af', '');
+            debugPrint('EQ disabled: audio filters cleared');
+          } else {
+            debugPrint(
+              'EQ disabled: setProperty not available on this platform',
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to clear audio filters: $e');
+        }
+        return;
+      }
+
+      // Get equalizer settings
+      final bass = _settingsService.eqBass;
+      final lowMid = _settingsService.eqLowMid;
+      final mid = _settingsService.eqMid;
+      final highMid = _settingsService.eqHighMid;
+      final treble = _settingsService.eqTreble;
+
+      // Get audio enhancement settings
+      final bassBoostEnabled = _settingsService.bassBoostEnabled;
+      final bassBoostStrength = _settingsService.bassBoostStrength;
+      final virtualizerEnabled = _settingsService.virtualizerEnabled;
+      final virtualizerStrength = _settingsService.virtualizerStrength;
+
+      // Build equalizer filter string using FFmpeg equalizer filter
+      // Each band targets specific frequency ranges with gain adjustments
+      final List<String> filters = [];
+
+      // Bass: 60Hz (typical bass frequency)
+      if (bass != 0.0) {
+        final gain = (bass * 12).toStringAsFixed(
+          1,
+        ); // Convert -1.0..1.0 to -12..12 dB
+        filters.add('equalizer=f=60:g=$gain');
+      }
+
+      // Low-Mid: 250Hz
+      if (lowMid != 0.0) {
+        final gain = (lowMid * 12).toStringAsFixed(1);
+        filters.add('equalizer=f=250:g=$gain');
+      }
+
+      // Mid: 1000Hz (1kHz)
+      if (mid != 0.0) {
+        final gain = (mid * 12).toStringAsFixed(1);
+        filters.add('equalizer=f=1000:g=$gain');
+      }
+
+      // High-Mid: 4000Hz (4kHz)
+      if (highMid != 0.0) {
+        final gain = (highMid * 12).toStringAsFixed(1);
+        filters.add('equalizer=f=4000:g=$gain');
+      }
+
+      // Treble: 12000Hz (12kHz)
+      if (treble != 0.0) {
+        final gain = (treble * 12).toStringAsFixed(1);
+        filters.add('equalizer=f=12000:g=$gain');
+      }
+
+      // Bass boost: Enhance low frequencies (20-200Hz range)
+      if (bassBoostEnabled && bassBoostStrength > 0.0) {
+        final boostGain = (bassBoostStrength * 8).toStringAsFixed(
+          1,
+        ); // 0-8 dB boost
+        // Apply bass boost to multiple low frequency bands for better effect
+        filters.add('equalizer=f=40:g=$boostGain:w=20'); // Sub-bass
+        filters.add('equalizer=f=80:g=$boostGain:w=40'); // Bass
+        filters.add('equalizer=f=160:g=$boostGain:w=80'); // Low bass
+      }
+
+      // Virtualizer: Create spatial audio effect using stereo widening
+      if (virtualizerEnabled && virtualizerStrength > 0.0) {
+        final widthValue = (1.0 + virtualizerStrength * 2.0).toStringAsFixed(
+          2,
+        ); // 1.0-3.0 range
+        // Use extrastereo filter to widen the stereo image
+        filters.add('extrastereo=m=$widthValue');
+
+        // Add slight reverb for spatial effect
+        final reverbStrength = (virtualizerStrength * 0.3).toStringAsFixed(2);
+        filters.add('aecho=0.8:0.9:1000:$reverbStrength');
+      }
+
+      // Apply the filter chain
+      final filterString = filters.join(',');
+
+      if (filterString.isNotEmpty) {
+        try {
+          if (_player.platform is NativePlayer) {
+            await (_player.platform as NativePlayer).setProperty(
+              'af',
+              filterString,
+            );
+            debugPrint('EQ applied successfully: $filterString');
+          } else {
+            debugPrint(
+              'EQ not supported: setProperty not available on this platform',
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to apply EQ filter: $e');
+          // If setProperty fails, try alternative approach
+          debugPrint(
+            'Note: Equalizer may not be supported on this platform or media_kit version',
+          );
+        }
+      } else {
+        // All bands are at 0, clear filters
+        try {
+          if (_player.platform is NativePlayer) {
+            await (_player.platform as NativePlayer).setProperty('af', '');
+            debugPrint('EQ enabled but all bands at 0: filters cleared');
+          } else {
+            debugPrint(
+              'EQ clear not supported: setProperty not available on this platform',
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to clear filters: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to apply equalizer: $e');
+      debugPrint(
+        'This may indicate that audio filters are not supported on this platform',
+      );
+    }
   }
 
   void setRepeatMode(RepeatMode mode) {

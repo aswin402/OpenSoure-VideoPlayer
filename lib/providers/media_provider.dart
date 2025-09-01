@@ -5,8 +5,11 @@ import '../models/media_file.dart';
 import '../models/playlist.dart' as mx;
 import '../services/file_service.dart';
 import '../services/settings_service.dart';
+import '../utils/performance_utils.dart';
+import '../utils/performance_monitor.dart';
 
-class MediaProvider extends ChangeNotifier {
+class MediaProvider extends ChangeNotifier
+    with PerformanceOptimizedProvider, PerformanceMonitored {
   final FileService _fileService = FileService();
   final SettingsService _settingsService = SettingsService();
 
@@ -25,6 +28,8 @@ class MediaProvider extends ChangeNotifier {
 
   // Background enrichment control
   bool _enrichmentCancelled = false;
+  bool _isInitialized = false;
+  bool _isInitializing = false;
 
   // Getters
   List<MediaFile> get allFiles => _allFiles;
@@ -38,6 +43,7 @@ class MediaProvider extends ChangeNotifier {
   MediaType get filterType => _filterType;
   SortBy get sortBy => _sortBy;
   bool get sortAscending => _sortAscending;
+  bool get isInitialized => _isInitialized;
 
   // Recently played cache
   List<MediaFile> _recentFiles = [];
@@ -48,8 +54,45 @@ class MediaProvider extends ChangeNotifier {
       _currentIndex < _currentPlaylist!.files.length - 1;
   bool get hasPrevious => _currentPlaylist != null && _currentIndex > 0;
 
+  // Non-blocking initialization for better startup performance
+  void initializeAsync() {
+    if (_isInitialized || _isInitializing) return;
+    _isInitializing = true;
+
+    // Initialize in background without blocking UI
+    Future.microtask(() async {
+      try {
+        await _settingsService.initialize();
+        debugPrint('MediaProvider: SettingsService initialized');
+
+        // Load recent files first (faster)
+        await _loadRecentFiles();
+
+        // Then load cached files or scan
+        await loadFiles();
+
+        _isInitialized = true;
+        debugPrint('MediaProvider: Initialization complete');
+      } catch (e) {
+        debugPrint('MediaProvider: Error during initialization: $e');
+      } finally {
+        _isInitializing = false;
+      }
+    });
+  }
+
   Future<void> initialize() async {
-    debugPrint('MediaProvider: Starting initialization...');
+    if (_isInitialized) return;
+    if (_isInitializing) {
+      // Wait for async initialization to complete
+      while (_isInitializing) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      return;
+    }
+
+    debugPrint('MediaProvider: Starting synchronous initialization...');
+    _isInitializing = true;
     try {
       await _settingsService.initialize();
       debugPrint('MediaProvider: SettingsService initialized');
@@ -57,10 +100,13 @@ class MediaProvider extends ChangeNotifier {
       await loadFiles();
       // Load recent files list
       await _loadRecentFiles();
+      _isInitialized = true;
       debugPrint('MediaProvider: Initialization complete');
     } catch (e) {
       debugPrint('MediaProvider: Error during initialization: $e');
       rethrow;
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -83,54 +129,60 @@ class MediaProvider extends ChangeNotifier {
     bool force = false,
     bool regenerateThumbnails = false,
   }) async {
-    debugPrint(
-      'MediaProvider: Loading files (force: $force, regenThumbs: $regenerateThumbnails)...',
-    );
-    _setLoading(true);
-    try {
-      if (force || _settingsService.shouldRescan()) {
-        debugPrint('MediaProvider: Scanning directories...');
-        _allFiles = await _fileService.getCommonMediaDirectories()
-          ..addAll(await _fileService.scanCustomFormats());
-        debugPrint('MediaProvider: Found ${_allFiles.length} files');
-        await _settingsService.setLastScanTime(DateTime.now());
-        await _settingsService.setCachedFiles(
-          _allFiles.map((f) => f.path).toList(),
-        );
-      } else {
-        debugPrint('MediaProvider: Loading from cache...');
-        final cachedFiles = _settingsService.getCachedFiles();
-        _allFiles = cachedFiles
-            .map((path) {
-              try {
-                return MediaFile.fromFile(File(path));
-              } catch (e) {
-                debugPrint(
-                  'Error creating MediaFile from cached path $path: $e',
-                );
-                return null;
-              }
-            })
-            .where((file) => file != null)
-            .cast<MediaFile>()
-            .toList();
-
-        // Enrich cached entries (duration + thumbnails for videos) in background
-        _backgroundEnrich(_allFiles, forceThumbnails: regenerateThumbnails);
-
-        debugPrint(
-          'MediaProvider: Loaded ${_allFiles.length} files from cache',
-        );
-      }
-      _applyFilters();
+    return timeOperation('loadFiles', () async {
       debugPrint(
-        'MediaProvider: Applied filters, ${_filteredFiles.length} files visible',
+        'MediaProvider: Loading files (force: $force, regenThumbs: $regenerateThumbnails)...',
       );
-    } catch (e) {
-      debugPrint('Error loading files: $e');
-    } finally {
-      _setLoading(false);
-    }
+      _setLoading(true);
+      try {
+        if (force || _settingsService.shouldRescan()) {
+          await timeOperation('scanDirectories', () async {
+            debugPrint('MediaProvider: Scanning directories...');
+            _allFiles = await _fileService.getCommonMediaDirectories()
+              ..addAll(await _fileService.scanCustomFormats());
+            debugPrint('MediaProvider: Found ${_allFiles.length} files');
+            await _settingsService.setLastScanTime(DateTime.now());
+            await _settingsService.setCachedFiles(
+              _allFiles.map((f) => f.path).toList(),
+            );
+          });
+        } else {
+          await timeOperation('loadFromCache', () async {
+            debugPrint('MediaProvider: Loading from cache...');
+            final cachedFiles = _settingsService.getCachedFiles();
+            _allFiles = cachedFiles
+                .map((path) {
+                  try {
+                    return MediaFile.fromFile(File(path));
+                  } catch (e) {
+                    debugPrint(
+                      'Error creating MediaFile from cached path $path: $e',
+                    );
+                    return null;
+                  }
+                })
+                .where((file) => file != null)
+                .cast<MediaFile>()
+                .toList();
+
+            // Enrich cached entries (duration + thumbnails for videos) in background
+            _backgroundEnrich(_allFiles, forceThumbnails: regenerateThumbnails);
+
+            debugPrint(
+              'MediaProvider: Loaded ${_allFiles.length} files from cache',
+            );
+          });
+        }
+        _applyFilters();
+        debugPrint(
+          'MediaProvider: Applied filters, ${_filteredFiles.length} files visible',
+        );
+      } catch (e) {
+        debugPrint('Error loading files: $e');
+      } finally {
+        _setLoading(false);
+      }
+    });
   }
 
   Future<void> scanDirectory(String path) async {
@@ -304,10 +356,14 @@ class MediaProvider extends ChangeNotifier {
 
   void setSearchQuery(String query) {
     _searchQuery = query;
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _applyFilters();
-    });
+    // Use performance utility for debouncing
+    debounceCallback(
+      'search_filter',
+      const Duration(
+        milliseconds: 300,
+      ), // Reduced delay for better responsiveness
+      _applyFilters,
+    );
   }
 
   void setFilterType(MediaType type) {
@@ -375,40 +431,30 @@ class MediaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Enrich files in background with limited concurrency, notify UI periodically
+  // Enrich files in background with optimized batching
   Future<void> _backgroundEnrich(
     List<MediaFile> files, {
     bool forceThumbnails = false,
   }) async {
-    const int concurrency = 3; // limit parallel tasks
-    int index = 0;
+    if (files.isEmpty) return;
 
-    Future<void> worker() async {
-      while (!_enrichmentCancelled) {
-        MediaFile? task;
-        // Pull next task
-        if (index < files.length) {
-          task = files[index++];
-        } else {
-          break;
-        }
+    // Use performance utility for batched processing
+    await PerformanceUtils.processBatched(
+      files,
+      (file) => _fileService
+          .enrichMediaFile(file, forceThumbnail: forceThumbnails)
+          .catchError((_) {
+            // Silently handle errors to prevent crashes
+          }),
+      batchSize: 3, // Smaller batches for better responsiveness
+      batchDelay: const Duration(milliseconds: 32), // ~30fps update rate
+      shouldCancel: () => _enrichmentCancelled,
+    );
 
-        try {
-          await _fileService.enrichMediaFile(
-            task,
-            forceThumbnail: forceThumbnails,
-          );
-        } catch (_) {}
-
-        // Notify UI in small batches
-        if (index % 8 == 0) {
-          notifyListeners();
-        }
-      }
+    // Final UI update
+    if (!_enrichmentCancelled) {
+      notifyListeners();
     }
-
-    await Future.wait(List.generate(concurrency, (_) => worker()));
-    notifyListeners(); // final update
   }
 
   // Playlist management
@@ -496,6 +542,7 @@ class MediaProvider extends ChangeNotifier {
     _currentPlaylist?.dispose();
     _currentPlaylist = null;
     _enrichmentCancelled = true;
+    disposePerformanceUtils(); // Clean up performance utilities
     super.dispose();
   }
 }

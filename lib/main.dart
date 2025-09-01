@@ -9,6 +9,8 @@ import 'providers/player_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_layout_screen.dart';
 import 'screens/player_screen.dart';
+import 'screens/equalizer_screen.dart';
+import 'services/thumbnail_cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,27 +50,35 @@ void main() async {
   // Ensure media_kit is ready (required for playback)
   MediaKit.ensureInitialized();
 
+  // Initialize thumbnail cache service
+  await ThumbnailCacheService.instance.initialize();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
           create: (context) {
             final provider = MediaProvider();
-            // Initialize asynchronously after creation
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              provider
-                  .initialize()
-                  .then((_) => debugPrint('MediaProvider initialized'))
-                  .catchError(
-                    (e) => debugPrint('Error initializing MediaProvider: $e'),
-                  );
-            });
+            // Initialize asynchronously without blocking UI
+            provider.initializeAsync();
             return provider;
           },
         ),
         // PlayerProvider available app-wide
-        ChangeNotifierProvider(create: (_) => PlayerProvider()..initialize()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()..initialize()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = PlayerProvider();
+            provider.initializeAsync();
+            return provider;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = ThemeProvider();
+            provider.initializeAsync();
+            return provider;
+          },
+        ),
       ],
       child: const MxCloneApp(),
     ),
@@ -85,17 +95,18 @@ class MxCloneApp extends StatefulWidget {
 
 class _MxCloneAppState extends State<MxCloneApp> with WindowListener {
   Timer? _sizeCheckTimer;
+  bool _isResizing = false;
 
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
 
-    // Start a periodic check to enforce size constraints
-    _sizeCheckTimer = Timer.periodic(const Duration(milliseconds: 100), (
-      timer,
-    ) {
-      _enforceWindowSize();
+    // Reduced frequency size checking - only when needed
+    _sizeCheckTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (!_isResizing) {
+        _enforceWindowSize();
+      }
     });
   }
 
@@ -106,57 +117,53 @@ class _MxCloneAppState extends State<MxCloneApp> with WindowListener {
     super.dispose();
   }
 
-  void _enforceWindowSize() {
-    windowManager
-        .getSize()
-        .then((size) {
-          const minWidth = 1000.0;
-          const minHeight = 800.0;
-          const maxWidth = 1600.0;
-          const maxHeight = 1000.0;
+  void _enforceWindowSize() async {
+    if (_isResizing) return;
+    _isResizing = true;
 
-          bool needsResize = false;
-          double newWidth = size.width;
-          double newHeight = size.height;
+    try {
+      final size = await windowManager.getSize();
+      const minWidth = 1000.0;
+      const minHeight = 800.0;
+      const maxWidth = 1600.0;
+      const maxHeight = 1000.0;
 
-          if (size.width < minWidth) {
-            newWidth = minWidth;
-            needsResize = true;
-            debugPrint(
-              'Window width too small (${size.width}), enforcing minimum: $minWidth',
-            );
-          } else if (size.width > maxWidth) {
-            newWidth = maxWidth;
-            needsResize = true;
-          }
+      bool needsResize = false;
+      double newWidth = size.width;
+      double newHeight = size.height;
 
-          if (size.height < minHeight) {
-            newHeight = minHeight;
-            needsResize = true;
-            debugPrint(
-              'Window height too small (${size.height}), enforcing minimum: $minHeight',
-            );
-          } else if (size.height > maxHeight) {
-            newHeight = maxHeight;
-            needsResize = true;
-          }
+      if (size.width < minWidth) {
+        newWidth = minWidth;
+        needsResize = true;
+      } else if (size.width > maxWidth) {
+        newWidth = maxWidth;
+        needsResize = true;
+      }
 
-          if (needsResize) {
-            debugPrint(
-              'Resizing window from ${size.width}x${size.height} to ${newWidth}x$newHeight',
-            );
-            windowManager.setSize(Size(newWidth, newHeight));
-          }
-        })
-        .catchError((e) {
-          // Ignore errors during size checking
-        });
+      if (size.height < minHeight) {
+        newHeight = minHeight;
+        needsResize = true;
+      } else if (size.height > maxHeight) {
+        newHeight = maxHeight;
+        needsResize = true;
+      }
+
+      if (needsResize) {
+        await windowManager.setSize(Size(newWidth, newHeight));
+      }
+    } catch (e) {
+      // Silently handle errors
+    } finally {
+      _isResizing = false;
+    }
   }
 
   @override
   void onWindowResize() {
-    // Trigger size enforcement on resize events
-    _enforceWindowSize();
+    // Debounced resize handling
+    if (!_isResizing) {
+      Timer(const Duration(milliseconds: 100), _enforceWindowSize);
+    }
   }
 
   @override
@@ -259,6 +266,7 @@ class _MxCloneAppState extends State<MxCloneApp> with WindowListener {
             return const MainLayoutScreen();
           }
         },
+        '/equalizer': (context) => const EqualizerScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

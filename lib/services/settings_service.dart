@@ -27,6 +27,22 @@ class SettingsService {
   static const String _keyDefaultVideoFit = 'default_video_fit';
   static const String _keyLanguage = 'language_pref';
 
+  // Equalizer
+  static const String _keyEqEnabled = 'eq_enabled';
+  static const String _keyEqPreset =
+      'eq_preset'; // normal, bass, treble, vocal, custom
+  static const String _keyEqBass = 'eq_bass';
+  static const String _keyEqLowMid = 'eq_low_mid';
+  static const String _keyEqMid = 'eq_mid';
+  static const String _keyEqHighMid = 'eq_high_mid';
+  static const String _keyEqTreble = 'eq_treble';
+
+  // Audio enhancements
+  static const String _keyBassBoostEnabled = 'bass_boost_enabled';
+  static const String _keyBassBoostStrength = 'bass_boost_strength';
+  static const String _keyVirtualizerEnabled = 'virtualizer_enabled';
+  static const String _keyVirtualizerStrength = 'virtualizer_strength';
+
   late SharedPreferences _prefs;
 
   Future<void> initialize() async {
@@ -227,6 +243,72 @@ class SettingsService {
     await _prefs.setString(_keyLanguage, code);
   }
 
+  // Equalizer getters/setters
+  bool get eqEnabled => _prefs.getBool(_keyEqEnabled) ?? false;
+  Future<void> setEqEnabled(bool v) async {
+    await _prefs.setBool(_keyEqEnabled, v);
+  }
+
+  EqPreset get eqPreset {
+    final idx = _prefs.getInt(_keyEqPreset) ?? EqPreset.normal.index;
+    return EqPreset.values[idx];
+  }
+
+  Future<void> setEqPreset(EqPreset p) async {
+    await _prefs.setInt(_keyEqPreset, p.index);
+  }
+
+  // Slider values are stored -1.0..+1.0
+  double get eqBass => _prefs.getDouble(_keyEqBass) ?? 0.0;
+  Future<void> setEqBass(double v) async {
+    await _prefs.setDouble(_keyEqBass, v.clamp(-1.0, 1.0));
+  }
+
+  double get eqLowMid => _prefs.getDouble(_keyEqLowMid) ?? 0.0;
+  Future<void> setEqLowMid(double v) async {
+    await _prefs.setDouble(_keyEqLowMid, v.clamp(-1.0, 1.0));
+  }
+
+  double get eqMid => _prefs.getDouble(_keyEqMid) ?? 0.0;
+  Future<void> setEqMid(double v) async {
+    await _prefs.setDouble(_keyEqMid, v.clamp(-1.0, 1.0));
+  }
+
+  double get eqHighMid => _prefs.getDouble(_keyEqHighMid) ?? 0.0;
+  Future<void> setEqHighMid(double v) async {
+    await _prefs.setDouble(_keyEqHighMid, v.clamp(-1.0, 1.0));
+  }
+
+  double get eqTreble => _prefs.getDouble(_keyEqTreble) ?? 0.0;
+  Future<void> setEqTreble(double v) async {
+    await _prefs.setDouble(_keyEqTreble, v.clamp(-1.0, 1.0));
+  }
+
+  // Bass boost settings
+  bool get bassBoostEnabled => _prefs.getBool(_keyBassBoostEnabled) ?? false;
+  Future<void> setBassBoostEnabled(bool v) async {
+    await _prefs.setBool(_keyBassBoostEnabled, v);
+  }
+
+  double get bassBoostStrength =>
+      _prefs.getDouble(_keyBassBoostStrength) ?? 0.0;
+  Future<void> setBassBoostStrength(double v) async {
+    await _prefs.setDouble(_keyBassBoostStrength, v.clamp(0.0, 1.0));
+  }
+
+  // Virtualizer settings
+  bool get virtualizerEnabled =>
+      _prefs.getBool(_keyVirtualizerEnabled) ?? false;
+  Future<void> setVirtualizerEnabled(bool v) async {
+    await _prefs.setBool(_keyVirtualizerEnabled, v);
+  }
+
+  double get virtualizerStrength =>
+      _prefs.getDouble(_keyVirtualizerStrength) ?? 0.0;
+  Future<void> setVirtualizerStrength(double v) async {
+    await _prefs.setDouble(_keyVirtualizerStrength, v.clamp(0.0, 1.0));
+  }
+
   // Clear all settings
   Future<void> clearAll() async {
     await _prefs.clear();
@@ -272,3 +354,6 @@ enum ThemePreset {
   desertDusk,
   oceanSunrise,
 }
+
+// Equalizer Presets
+enum EqPreset { normal, bassBoost, trebleBoost, vocal, custom }

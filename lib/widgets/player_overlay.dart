@@ -277,6 +277,14 @@ class _PlayerOverlayState extends State<PlayerOverlay> {
                 },
               ),
               _sheetItem(
+                icon: Icons.equalizer,
+                label: 'Equalizer',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).pushNamed('/equalizer');
+                },
+              ),
+              _sheetItem(
                 icon: Icons.info,
                 label: 'Media Info',
                 onTap: () {

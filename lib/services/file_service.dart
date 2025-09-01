@@ -7,6 +7,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import '../models/media_file.dart';
+import 'thumbnail_cache_service.dart';
 
 class FileService {
   static bool? _ffmpegAvailable;
@@ -284,6 +285,11 @@ class FileService {
     bool forceThumbnail = false,
   }) async {
     try {
+      // Skip if duration already exists and not forcing
+      if (!forceThumbnail && file.duration.value != null) {
+        return;
+      }
+
       // Ensure media_kit is initialized
       MediaKit.ensureInitialized();
 
@@ -295,18 +301,18 @@ class FileService {
           play: false,
         ); // open without playing
 
-        // Wait for a non-zero duration with a reasonable timeout
+        // Wait for a non-zero duration with shorter timeout for better performance
         Duration probed = Duration.zero;
         try {
           probed = await player.stream.duration
               .firstWhere((d) => d != Duration.zero)
-              .timeout(const Duration(seconds: 3));
+              .timeout(const Duration(seconds: 2)); // Reduced timeout
         } catch (_) {
-          // Fallback: small delay then read the latest emitted value if any
+          // Quick fallback
           try {
-            await Future.delayed(const Duration(milliseconds: 300));
+            await Future.delayed(const Duration(milliseconds: 200));
             final latest = await player.stream.duration.first.timeout(
-              const Duration(milliseconds: 300),
+              const Duration(milliseconds: 200),
               onTimeout: () => Duration.zero,
             );
             probed = latest;
@@ -317,11 +323,28 @@ class FileService {
       } catch (_) {
         file.duration.value = null;
       } finally {
-        await player.dispose();
+        // Ensure proper cleanup
+        try {
+          await player.dispose();
+        } catch (_) {}
       }
 
-      // Generate or reuse a cached thumbnail image
+      // Generate or reuse a cached thumbnail image using optimized cache service
       try {
+        final cacheService = ThumbnailCacheService.instance;
+
+        // Check if thumbnail exists in cache first
+        final cachedPath = cacheService.getCachedThumbnailPath(
+          file.path,
+          file.size,
+          file.lastModified.millisecondsSinceEpoch,
+        );
+
+        if (!forceThumbnail && cachedPath != null) {
+          file.thumbnailPath = cachedPath;
+          return;
+        }
+
         // Ensure ffmpeg is on PATH; if not, skip generation gracefully
         if (!(await FileService.isFfmpegAvailable())) {
           debugPrint('Thumbnail generation skipped: ffmpeg not found on PATH');
@@ -332,7 +355,7 @@ class FileService {
         final baseName = p.basenameWithoutExtension(file.path);
         final outPath = p.join(
           tempDir.path,
-          'mxclone_thumbs',
+          'mxclone_thumbs_temp',
           // Cache-bust on file changes using size + mtime
           '${baseName}_${file.size}_${file.lastModified.millisecondsSinceEpoch}.jpg',
         );
@@ -341,42 +364,54 @@ class FileService {
           await outDir.create(recursive: true);
         }
 
-        // If a cached thumbnail already exists, reuse it unless forcing regeneration
-        final cached = File(outPath);
-        if (!forceThumbnail && await cached.exists()) {
-          file.thumbnailPath = outPath;
+        // Generate thumbnail
+        // Pick a good preview frame:
+        // - Prefer middle for long videos
+        // - Otherwise try 2–5 seconds where available
+        final dur = file.duration.value ?? Duration.zero;
+        final totalMs = dur.inMilliseconds;
+
+        List<int> timeCandidates;
+        if (totalMs >= 10 * 1000) {
+          // Long videos: middle, then 5s, 2s, then 0
+          timeCandidates = [totalMs ~/ 2, 5000, 2000, 0];
+        } else if (totalMs >= 5 * 1000) {
+          // Medium: 3s, middle, 2s, 0
+          timeCandidates = [3000, totalMs ~/ 2, 2000, 0];
+        } else if (totalMs >= 2 * 1000) {
+          // Short: 2s, middle, 0
+          timeCandidates = [2000, totalMs ~/ 2, 0];
+        } else if (totalMs > 0) {
+          // Very short: middle, 0
+          timeCandidates = [totalMs ~/ 2, 0];
         } else {
-          // Pick a good preview frame:
-          // - Prefer middle for long videos
-          // - Otherwise try 2–5 seconds where available
-          final dur = file.duration.value ?? Duration.zero;
-          final totalMs = dur.inMilliseconds;
+          // Unknown duration: try 2s then 0
+          timeCandidates = [2000, 0];
+        }
 
-          List<int> timeCandidates;
-          if (totalMs >= 10 * 1000) {
-            // Long videos: middle, then 5s, 2s, then 0
-            timeCandidates = [totalMs ~/ 2, 5000, 2000, 0];
-          } else if (totalMs >= 5 * 1000) {
-            // Medium: 3s, middle, 2s, 0
-            timeCandidates = [3000, totalMs ~/ 2, 2000, 0];
-          } else if (totalMs >= 2 * 1000) {
-            // Short: 2s, middle, 0
-            timeCandidates = [2000, totalMs ~/ 2, 0];
-          } else if (totalMs > 0) {
-            // Very short: middle, 0
-            timeCandidates = [totalMs ~/ 2, 0];
-          } else {
-            // Unknown duration: try 2s then 0
-            timeCandidates = [2000, 0];
-          }
-
-          String? generatedFinal;
-          for (final t in timeCandidates) {
+        String? generatedFinal;
+        for (final t in timeCandidates) {
+          try {
+            // Try writing directly to our target path to avoid rename races
+            final generated = await VideoThumbnail.thumbnailFile(
+              video: file.path,
+              thumbnailPath: outPath,
+              imageFormat: ImageFormat.JPEG,
+              quality: 85,
+              timeMs: t,
+              maxWidth: 1280,
+              maxHeight: 1280,
+            );
+            if (generated != null && await File(generated).exists()) {
+              generatedFinal = generated;
+              break;
+            }
+          } catch (_) {
+            // Fallback: generate in directory with random name
             try {
-              // Try writing directly to our target path to avoid rename races
               final generated = await VideoThumbnail.thumbnailFile(
                 video: file.path,
-                thumbnailPath: outPath,
+                thumbnailPath: outDir.path,
                 imageFormat: ImageFormat.JPEG,
                 quality: 85,
                 timeMs: t,
@@ -387,38 +422,29 @@ class FileService {
                 generatedFinal = generated;
                 break;
               }
-            } catch (_) {
-              // Fallback: generate in directory with random name
+            } catch (_) {}
+          }
+        }
+
+        if (generatedFinal != null) {
+          // Cache the generated thumbnail
+          final cachedPath = await cacheService.cacheThumbnail(
+            file.path,
+            file.size,
+            file.lastModified.millisecondsSinceEpoch,
+            generatedFinal,
+          );
+
+          if (cachedPath != null) {
+            file.thumbnailPath = cachedPath;
+            // Clean up temporary file if different from cached
+            if (generatedFinal != cachedPath) {
               try {
-                final generated = await VideoThumbnail.thumbnailFile(
-                  video: file.path,
-                  thumbnailPath: outDir.path,
-                  imageFormat: ImageFormat.JPEG,
-                  quality: 85,
-                  timeMs: t,
-                  maxWidth: 1280,
-                  maxHeight: 1280,
-                );
-                if (generated != null && await File(generated).exists()) {
-                  generatedFinal = generated;
-                  break;
-                }
+                await File(generatedFinal).delete();
               } catch (_) {}
             }
-          }
-
-          if (generatedFinal != null) {
-            try {
-              if (generatedFinal != outPath) {
-                await File(generatedFinal).rename(outPath);
-                file.thumbnailPath = outPath;
-              } else {
-                file.thumbnailPath = outPath;
-              }
-            } catch (_) {
-              // Fallback to original generated path if rename fails
-              file.thumbnailPath = generatedFinal;
-            }
+          } else {
+            file.thumbnailPath = generatedFinal;
           }
         }
       } catch (e) {
